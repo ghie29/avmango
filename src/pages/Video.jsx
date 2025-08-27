@@ -1,17 +1,19 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import supabase from "../../supabaseClient";
 import VideoCard from "../components/VideoCard";
 import { categories } from "../data/categories";
-import Plyr from "plyr-react";
+import Plyr from "plyr";
+import Hls from "hls.js";
 import "plyr-react/plyr.css";
 
 export default function Video() {
-    const { id } = useParams();
+    const { id } = useParams(); // Korean: slug or numeric ID
     const [video, setVideo] = useState(null);
     const [related, setRelated] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const playerContainerRef = useRef(null);
 
     useEffect(() => {
         async function fetchVideo() {
@@ -22,74 +24,66 @@ export default function Video() {
                 let fetchedVideo = null;
                 let categoryType = "unknown";
 
-                // -------------------- Check Korean Supabase --------------------
-                const { data: koreanBoard } = await supabase
-                    .from("boards")
-                    .select("id")
-                    .eq("slug", "korean")
-                    .single();
-
-                const { data: koreanVideo } = await supabase
-                    .from("videos")
-                    .select("*")
-                    .eq("id", id)
-                    .eq("board_id", koreanBoard.id)
-                    .single();
-
-                if (koreanVideo) {
-                    fetchedVideo = koreanVideo;
-                    categoryType = "supabase";
-                } else {
-                    // -------------------- Check AVDB API --------------------
-                    for (const [key, cat] of Object.entries(categories)) {
-                        if (cat.type === "api") {
-                            const res = await fetch(cat.url);
-                            const json = await res.json();
-                            const list = Array.isArray(json.list) ? json.list : json.id ? [json] : [];
-                            const found = list.find(v => v.id == id);
-                            if (found) {
-                                fetchedVideo = found;
-                                categoryType = "api";
-                                break;
-                            }
+                // -------------------- AVDB API first --------------------
+                for (const cat of Object.values(categories)) {
+                    if (cat.type === "api") {
+                        const res = await fetch(cat.url);
+                        const json = await res.json();
+                        const list = Array.isArray(json.list) ? json.list : json.id ? [json] : [];
+                        const found = list.find(v => v.id == id);
+                        if (found) {
+                            fetchedVideo = found;
+                            categoryType = "api";
+                            break;
                         }
+                    }
+                }
+
+                // -------------------- Korean Supabase videos --------------------
+                if (!fetchedVideo) {
+                    const { data: koreanVideo, error: fetchError } = await supabase
+                        .from("videos")
+                        .select("*")
+                        .or(`id.eq.${id},slug.eq.${id}`)
+                        .maybeSingle();
+                    if (fetchError) throw fetchError;
+
+                    if (koreanVideo) {
+                        fetchedVideo = koreanVideo;
+                        categoryType = "supabase";
                     }
                 }
 
                 if (!fetchedVideo) throw new Error("Video not found");
 
-                // -------------------- Normalize Video --------------------
-                const linkEmbed = fetchedVideo.episodes?.server_data?.Full?.link_embed || "";
-                const normalizedVideo = {
+                // -------------------- Normalize video URL --------------------
+                let videoUrl = "";
+                if (categoryType === "supabase") {
+                    if (fetchedVideo.video_url) {
+                        videoUrl = fetchedVideo.video_url;
+                    } else if (fetchedVideo.episodes?.server_data?.Full?.link_embed) {
+                        videoUrl = fetchedVideo.episodes.server_data.Full.link_embed;
+                    }
+                } else {
+                    videoUrl = fetchedVideo.episodes?.server_data?.Full?.link_embed || "";
+                }
+
+                setVideo({
                     id: fetchedVideo.id,
                     title: fetchedVideo.title || fetchedVideo.name || fetchedVideo.origin_name || "No Title",
-                    origin_name: fetchedVideo.origin_name || "",
-                    slug: fetchedVideo.slug,
-                    description: fetchedVideo.description || "No description available.",
-                    thumbnail: fetchedVideo.poster_url || fetchedVideo.thumb_url || "https://via.placeholder.com/640x360",
-                    videoUrl: categoryType === "supabase" ? fetchedVideo.video_url : linkEmbed,
+                    videoUrl,
                     type: categoryType,
-                    actors: fetchedVideo.actor || [],
-                    director: fetchedVideo.director || [],
-                    movie_code: fetchedVideo.movie_code || fetchedVideo.slug || fetchedVideo.id.toString(),
-                    category: fetchedVideo.category || [],
-                    country: fetchedVideo.country?.join(", ") || "",
-                    year: fetchedVideo.year,
-                    quality: fetchedVideo.quality,
-                    status: fetchedVideo.status,
-                    server_name: fetchedVideo.episodes?.server_name || "",
-                };
+                    description: fetchedVideo.description || "No description available",
+                    thumbnail: fetchedVideo.poster_url || fetchedVideo.thumb_url || "https://via.placeholder.com/640x360",
+                });
 
-                setVideo(normalizedVideo);
-
-                // -------------------- Fetch Related Videos --------------------
+                // -------------------- Related Videos --------------------
                 let relatedVideos = [];
                 if (categoryType === "supabase") {
                     const { data: rel } = await supabase
                         .from("videos")
                         .select("*")
-                        .eq("board_id", koreanBoard.id)
-                        .neq("id", id)
+                        .neq("slug", id)
                         .limit(8);
                     relatedVideos = rel.map(v => ({
                         id: v.id,
@@ -98,9 +92,7 @@ export default function Video() {
                         views: v.views || 0,
                     }));
                 } else if (categoryType === "api") {
-                    const apiCategory = Object.values(categories).find(
-                        c => c.type === "api" && fetchedVideo.id // fallback, category URL is not always reliable
-                    );
+                    const apiCategory = Object.values(categories).find(c => c.type === "api");
                     if (apiCategory) {
                         const res = await fetch(apiCategory.url);
                         const json = await res.json();
@@ -116,8 +108,8 @@ export default function Video() {
                             }));
                     }
                 }
-
                 setRelated(relatedVideos);
+
             } catch (err) {
                 console.error(err);
                 setError(err.message || "Error loading video");
@@ -129,6 +121,39 @@ export default function Video() {
         fetchVideo();
     }, [id]);
 
+    // -------------------- Plyr Setup for Korean Supabase --------------------
+    useEffect(() => {
+        if (!video || !video.videoUrl || video.type !== "supabase") return;
+
+        const container = playerContainerRef.current;
+        let plyrInstance;
+
+        if (container) {
+            const videoEl = document.createElement("video");
+            videoEl.className = "w-full h-full rounded-lg";
+            videoEl.setAttribute("playsinline", "");
+            videoEl.setAttribute("controls", "");
+            container.innerHTML = "";
+            container.appendChild(videoEl);
+
+            if (video.videoUrl.endsWith(".m3u8") && Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(video.videoUrl);
+                hls.attachMedia(videoEl);
+            } else {
+                videoEl.src = video.videoUrl;
+            }
+
+            plyrInstance = new Plyr(videoEl, {
+                autoplay: false,
+                ratio: "16:9",
+                tooltips: { controls: true, seek: true },
+            });
+        }
+
+        return () => plyrInstance?.destroy();
+    }, [video]);
+
     if (loading) return <p className="text-white p-6 text-center">Loading...</p>;
     if (error) return <p className="text-red-500 p-6 text-center">{error}</p>;
     if (!video) return null;
@@ -136,15 +161,8 @@ export default function Video() {
     return (
         <div className="flex flex-col items-center w-full">
             {/* Video Player */}
-            <div className="w-full max-w-4xl mb-6">
-                {video.type === "supabase" ? (
-                    <Plyr
-                        type="video"
-                        url={video.videoUrl}
-                        poster={video.thumbnail}
-                        controls={["play", "progress", "current-time", "mute", "volume", "fullscreen"]}
-                    />
-                ) : (
+            <div ref={playerContainerRef} className="w-full max-w-4xl mb-6">
+                {video.type !== "supabase" && video.videoUrl && (
                     <div className="relative pt-[56.25%] rounded shadow-lg overflow-hidden">
                         <iframe
                             src={video.videoUrl}
@@ -154,6 +172,7 @@ export default function Video() {
                         />
                     </div>
                 )}
+                {!video.videoUrl && <p className="text-white text-center">No video URL available</p>}
 
                 <h1 className="text-2xl text-white font-bold mt-4 text-center neon-text">{video.title}</h1>
                 <p className="text-gray-400 mt-2 text-center">{video.description}</p>
