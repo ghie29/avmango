@@ -8,7 +8,7 @@ export default function MainLayout({ children }) {
       <Header />
 
       {/* Main Content */}
-      <main className="flex flex-col items-center w-full max-w-6xl p-2">
+      <main className="flex flex-col items-center w-full p-2">
         {children}
       </main>
 

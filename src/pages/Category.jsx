@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import supabase from "../../supabaseClient";
 import VideoCard from "../components/VideoCard";
 import { categories } from "../data/categories";
+import Sidebar from "../components/Sidebar";
 
 export default function Category() {
     const { name } = useParams();
@@ -181,57 +182,62 @@ export default function Category() {
 
     return (
         <>
-            <h1 className="text-3xl font-extrabold mb-6 text-white capitalize">
+            <h1 className="ml-10 text-3xl font-extrabold mb-6 text-white capitalize">
                 {displayName}
             </h1>
 
-            {loading && <p className="text-white">Loading...</p>}
-            {error && <p className="text-red-500">{error}</p>}
+            {loading && <p className="text-white ml-10">Loading...</p>}
+            {error && <p className="text-red-500 ml-10">{error}</p>}
             {!loading && !error && paginatedVideos.length === 0 && (
-                <p className="text-white">No videos found.</p>
+                <p className="text-white ml-10">No videos found.</p>
             )}
 
             {!loading && !error && paginatedVideos.length > 0 && (
-                <>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {paginatedVideos.map(video => (
-                            <VideoCard key={video.id} video={video} />
-                        ))}
+                <div className="flex flex-col lg:flex-row gap-6 max-w-[95%] mx-auto justify-center">
+                    {/* Left: Video Grid */}
+                    <div className="flex-1">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {paginatedVideos.map(video => (
+                                <VideoCard key={video.id} video={video} />
+                            ))}
+                        </div>
+
+                        {/* Pagination */}
+                        <div className="flex justify-center mt-6 space-x-2 flex-wrap">
+                            <button
+                                onClick={() => handlePageChange(currentUIPage - 1)}
+                                disabled={currentUIPage === 1}
+                                className="px-3 py-1 bg-gray-700 text-white rounded disabled:opacity-50"
+                            >
+                                Prev
+                            </button>
+
+                            {getPageNumbers().map((number, idx) =>
+                                number === "..." ? (
+                                    <span key={idx} className="px-2 py-1 text-white">…</span>
+                                ) : (
+                                    <button
+                                        key={idx}
+                                        onClick={() => handlePageChange(number)}
+                                        className={`px-3 py-1 rounded ${currentUIPage === number ? "bg-yellow-500 text-black font-bold" : "bg-gray-700 text-white hover:bg-gray-600"}`}
+                                    >
+                                        {number}
+                                    </button>
+                                )
+                            )}
+
+                            <button
+                                onClick={() => handlePageChange(currentUIPage + 1)}
+                                disabled={currentUIPage === totalUIPages}
+                                className="px-3 py-1 bg-gray-700 text-white rounded disabled:opacity-50"
+                            >
+                                Next
+                            </button>
+                        </div>
                     </div>
-
-                    {/* Pagination */}
-                    <div className="flex justify-center mt-6 space-x-2 flex-wrap">
-                        <button
-                            onClick={() => handlePageChange(currentUIPage - 1)}
-                            disabled={currentUIPage === 1}
-                            className="px-3 py-1 bg-gray-700 text-white rounded disabled:opacity-50"
-                        >
-                            Prev
-                        </button>
-
-                        {getPageNumbers().map((number, idx) =>
-                            number === "..." ? (
-                                <span key={idx} className="px-2 py-1 text-white">…</span>
-                            ) : (
-                                <button
-                                    key={idx}
-                                    onClick={() => handlePageChange(number)}
-                                    className={`px-3 py-1 rounded ${currentUIPage === number ? "bg-yellow-500 text-black font-bold" : "bg-gray-700 text-white hover:bg-gray-600"}`}
-                                >
-                                    {number}
-                                </button>
-                            )
-                        )}
-
-                        <button
-                            onClick={() => handlePageChange(currentUIPage + 1)}
-                            disabled={currentUIPage === totalUIPages}
-                            className="px-3 py-1 bg-gray-700 text-white rounded disabled:opacity-50"
-                        >
-                            Next
-                        </button>
-                    </div>
-                </>
+                    {/* Right Sidebar */}
+                    <Sidebar />
+                </div>
             )}
         </>
     );

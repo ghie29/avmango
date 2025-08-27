@@ -1,16 +1,20 @@
 ﻿import { useEffect, useState } from "react";
 import VideoCard from "../components/VideoCard";
 import supabase from "../../supabaseClient";
+import Sidebar from "../components/Sidebar";
+import { categories } from "../data/categories"; // ✅ import categories.js
 
 export default function Home() {
     const [videos, setVideos] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [extraSections, setExtraSections] = useState({});
+    const [loadingExtras, setLoadingExtras] = useState(true);
 
     useEffect(() => {
         async function fetchKoreanVideos() {
             setLoading(true);
             try {
-                // Get the Korean board ID
+                // ✅ Get Korean board
                 const { data: boardData, error: boardError } = await supabase
                     .from("boards")
                     .select("id")
@@ -19,7 +23,7 @@ export default function Home() {
 
                 if (boardError) throw boardError;
 
-                // Fetch latest 8 videos
+                // ✅ Fetch videos from Supabase
                 const { data: videosData, error: videosError } = await supabase
                     .from("videos")
                     .select("*")
@@ -34,6 +38,7 @@ export default function Home() {
                     title: video.title || "No Title",
                     views: video.views || "0",
                     thumbnail: video.thumbnail || "https://via.placeholder.com/320x180",
+                    source: "supabase",
                 }));
 
                 setVideos(normalized);
@@ -44,60 +49,125 @@ export default function Home() {
             }
         }
 
+        async function fetchExtraSections() {
+            setLoadingExtras(true);
+            try {
+                const results = {};
+                // ✅ Loop through categories object (skip korean, handled above)
+                for (const [slug, cat] of Object.entries(categories)) {
+                    if (cat.type === "supabase") continue;
+
+                    try {
+                        const res = await fetch(cat.url);
+                        const data = await res.json();
+
+                        if (data?.list) {
+                            results[slug] = data.list.slice(0, 4).map(video => ({
+                                id: video.vod_id || video.id, // ✅ always unique
+                                title: video.name || "No Title", // ✅ use API's title
+                                thumbnail: video.thumb_url || "https://via.placeholder.com/320x180", // ✅ use API's thumbnail
+                                source: "api",
+                            }));
+                        }
+                    } catch (err) {
+                        console.error(`Error fetching ${slug}:`, err);
+                    }
+                }
+                setExtraSections(results);
+            } catch (err) {
+                console.error("Extra fetch error:", err);
+            } finally {
+                setLoadingExtras(false);
+            }
+        }
+
         fetchKoreanVideos();
+        fetchExtraSections();
     }, []);
 
     return (
         <div className="p-8 flex flex-col lg:flex-row gap-8">
             {/* Main content */}
-            <div className="flex-1">
-                <h1 className="text-2xl text-white mb-6 font-bold">Videos being watched</h1>
+            <div className="flex-1 -mt-10 space-y-10">
+                {/* Korean Section */}
+                <div>
+                    {/* Top Ads Block - hidden by default */}
+                    <div
+                        className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 mt-10">
+                        {/* Ad 1 */}
+                        <div className="border border-yellow-600/40 overflow-hidden shadow-lg h-30">
+                            <a href="https://t.me/csghie29" target="_blank" rel="noopener noreferrer">
+                                <img
+                                    src="https://ggonggane.com/storage/banner-image/eurostar-580x120.jpg"
+                                    alt="Ad Banner 1"
+                                    className="w-full h-auto"
+                                />
+                            </a>
+                        </div>
 
-                {loading ? (
-                    <p className="text-white">Loading...</p>
-                ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {videos.map(video => <VideoCard key={video.id} video={video} />)}
+                        {/* Ad 2 - Placeholder */}
+                        <div className="border border-yellow-600/40 overflow-hidden shadow-lg flex items-center justify-center bg-gray-800 text-white text-lg font-semibold h-30">
+                            Boost Your Business Here!
+                        </div>
+
                     </div>
-                )}
+                    <h1 className="text-2xl text-white mb-2 font-bold">Videos being watched</h1>
+                    {loading ? (
+                        <p className="text-white">Loading...</p>
+                    ) : videos.length === 0 ? (
+                        <p className="text-gray-400">No videos found.</p>
+                    ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {videos.map(video => (
+                                <VideoCard key={`${video.source}-${video.id}`} video={video} />
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {Object.entries(categories)
+                    .filter(([slug, cat]) => cat.type === "api")
+                    .map(([slug, cat]) => (
+                        <div key={slug} className="mb-10">
+                            {/* Category Title */}
+                            <h2 className="text-xl text-white mb-2 font-semibold">
+                                {cat.label || slug.replace("-", " ")}
+                            </h2>
+
+                            {/* Videos */}
+                            {loadingExtras ? (
+                                <p className="text-white">Loading...</p>
+                            ) : extraSections[slug]?.length > 0 ? (
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {extraSections[slug].map(video => (
+                                        <VideoCard key={`${video.source}-${video.id}`} video={video} />
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-gray-400">No videos found.</p>
+                            )}
+
+                            {/* ✅ Ad Block (multiple ads per category) */}
+                            {cat.ads && cat.ads.length > 0 && (
+                                <div className="my-6 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                                    {cat.ads.map((ad, idx) => (
+                                        <a key={idx} href={ad.link} target="_blank" rel="noopener noreferrer">
+                                            <img
+                                                src={ad.image}
+                                                alt={`Ad ${idx + 1}`}
+                                                className="shadow-lg w-full h-auto"
+                                            />
+                                        </a>
+                                    ))}
+                                </div>
+                            )}
+
+                        </div>
+                    ))}
             </div>
 
-            {/* Right Sidebar */}
-            <aside className="hidden lg:block w-[300px] flex-shrink-0 space-y-6 mt-14">
-
-                {/* 🟡 Ad Block 1 */}
-                <div className="border border-yellow-600/40 overflow-hidden shadow-lg">
-                    <a href="#" target="_blank" rel="noopener noreferrer">
-                        <img
-                            src="https://ggonggane.com/storage/banner-image/20250530-1748596600489363.jpg"
-                            alt="Ad Banner"
-                            className="w-full h-auto"
-                        />
-                    </a>
-                </div>
-
-                {/* 🟡 Ad Block 2 */}
-                <div className="border border-yellow-600/40 overflow-hidden shadow-lg">
-                    <a href="#" target="_blank" rel="noopener noreferrer">
-                        <img
-                            src="https://ggonggane.com/storage/banner-image/20241018-1729178186610724.jpg"
-                            alt="Ad Banner"
-                            className="w-full h-auto"
-                        />
-                    </a>
-                </div>
-
-                {/* 🟡 Widget Example */}
-                <div className="bg-gray-900 p-4 rounded-xl border border-yellow-600/20 shadow-md">
-                    <h2 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500">
-                        Sponsored
-                    </h2>
-                    <p className="text-gray-400 text-sm mt-2">
-                        Place text ads, affiliate banners, or trending offers here.
-                    </p>
-                </div>
-
-            </aside>
+            {/* Sidebar */}
+            <Sidebar />
         </div>
     );
 }
