@@ -1,4 +1,5 @@
-﻿export default function Footer() {
+﻿
+export default function Footer() {
     return (
         <footer className="text-gray-300 px-6 py-10 mt-8 border-t border-yellow-600/40">
             <div className="max-w-[100%] mx-auto grid grid-cols-1 md:grid-cols-3 gap-10">
@@ -57,8 +58,6 @@ font-extrabold text-2xl mb-3 drop-shadow-lg">
                         All rights reserved.
                     </p>
                 </div>
-
-
             </div>
         </footer>
     );

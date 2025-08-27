@@ -17,7 +17,7 @@ export default function Header() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     return (
-        <header className="text-white p-8">
+        <header className="text-white p-1 mt-2">
             {/* Top row */}
             <div className="flex items-center justify-between max-w-[100%] mx-auto">
                 {/* Logo */}

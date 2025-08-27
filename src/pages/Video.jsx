@@ -163,7 +163,7 @@ export default function Video() {
     if (!video) return null;
 
     return (
-        <div className="flex flex-col lg:flex-row w-full px-2 gap-6 lg:px-8">
+        <div className="flex flex-col lg:flex-row w-full px-2 gap-6 mt-2">
             {/* Main Content */}
             <div className="flex-1 flex flex-col items-center">
                 {/* Player + Title */}
