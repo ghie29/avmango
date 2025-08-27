@@ -1,5 +1,5 @@
 ﻿import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 
 // ✅ Define categories with label + slug
@@ -15,6 +15,18 @@ const categories = [
 
 export default function Header() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
+    const navigate = useNavigate();
+
+    const handleSearch = (e) => {
+        if (e.key === "Enter") {
+            if (searchTerm.trim() !== "") {
+                // Go to search page with query
+                navigate(`/search/${encodeURIComponent(searchTerm.trim())}`);
+                setSearchTerm("");
+            }
+        }
+    };
 
     return (
         <header className="text-white p-1 mt-2">
@@ -35,16 +47,19 @@ export default function Header() {
                 </a>
 
                 {/* Desktop: search with icon */}
-                <div className="hidden md:flex flex-1 justify-center">
-                    <div className="relative w-1/2">
+                <div className="hidden md:flex flex-1 justify-center mb-6">
+                    <div className="relative w-1/2 mt-10">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
                         <input
                             type="text"
                             placeholder="Search..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onKeyDown={handleSearch} // ✅ handle Enter key
                             className="w-full pl-10 pr-4 py-2 rounded-lg bg-gray-800 text-white placeholder-gray-400
-                focus:outline-none focus:ring-2 focus:ring-yellow-400
-                focus:bg-gradient-to-r focus:from-gray-800 focus:via-gray-900 focus:to-gray-800
-                transition-all duration-300"
+focus:outline-none focus:ring-2 focus:ring-yellow-400
+focus:bg-gradient-to-r focus:from-gray-800 focus:via-gray-900 focus:to-gray-800
+transition-all duration-300"
                         />
                     </div>
                 </div>
@@ -77,6 +92,9 @@ export default function Header() {
                     <input
                         type="text"
                         placeholder="Search..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onKeyDown={handleSearch} // ✅ handle Enter key
                         className="w-full pl-10 pr-4 py-2 rounded 
               bg-gray-800 text-white focus:outline-none
               border border-yellow-400/20

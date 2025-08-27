@@ -173,12 +173,13 @@ export default function Video() {
                         <div ref={playerContainerRef} className="w-full mb-4" />
                     ) : (
                         <div className="relative w-full rounded-lg shadow-lg overflow-hidden aspect-video">
-                            <iframe
-                                src={video.videoUrl}
-                                title={video.title}
-                                allowFullScreen
-                                className="absolute top-0 left-0 w-full h-full"
-                            />
+                                <iframe
+                                    src={video.videoUrl}
+                                    title={video.title}
+                                    allowFullScreen
+                                    loading="lazy"
+                                    className="absolute top-0 left-0 w-full h-full"
+                                />
                         </div>
                     )}
 

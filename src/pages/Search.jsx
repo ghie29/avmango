@@ -1,100 +1,83 @@
-import { useState } from "react";
+﻿import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import VideoCard from "../components/VideoCard";
 import supabase from "../../supabaseClient";
-import { categories } from "../data/categories";
+import axios from "axios";
 
 export default function Search() {
-    const [query, setQuery] = useState("");
-    const [results, setResults] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
+    const { term } = useParams(); // from /search/:term
+    const [videos, setVideos] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    const handleSearch = async (e) => {
-        e.preventDefault();
-        if (!query) return;
+    useEffect(() => {
+        async function fetchSearchResults() {
+            setLoading(true);
+            try {
+                // 1️⃣ Fetch from Supabase
+                const { data: supabaseData, error: supabaseError } = await supabase
+                    .from("videos")
+                    .select("*")
+                    .ilike("title", `%${term}%`);
 
-        setLoading(true);
-        setError(null);
-        setResults([]);
+                if (supabaseError) throw supabaseError;
 
-        try {
-            let allResults = [];
+                // 2️⃣ Fetch from AVDB API
+                const avdbResponse = await axios.get(
+                    `https://avdbapi.com/api.php/provide/vod?ac=detail&wd=${encodeURIComponent(term)}`
+                );
+                const avdbData = avdbResponse.data.list || [];
 
-            // Search Korean videos
-            const { data: koreanBoard } = await supabase
-                .from("boards")
-                .select("id")
-                .eq("slug", "korean")
-                .single();
+                // 3️⃣ Combine and normalize
+                const combinedVideos = [
+                    // Supabase videos
+                    ...supabaseData.map((video) => ({
+                        id: video.id,
+                        title: video.title || "No Title",
+                        thumbnail: video.thumbnail || "https://via.placeholder.com/320x180",
+                        views: video.views || "0",
+                        source: "supabase",
+                        video_url: video.video_url || "",
+                    })),
 
-            const { data: koreanVideos } = await supabase
-                .from("videos")
-                .select("*")
-                .ilike("title", `%${query}%`)
-                .eq("board_id", koreanBoard.id);
+                    // AVDB API videos
+                    ...avdbData.map((video) => ({
+                        id: video.vod_id || video.id, // always unique
+                        title: video.name || "No Title", // use API's title
+                        thumbnail: video.thumb_url || "https://via.placeholder.com/320x180", // API thumbnail
+                        views: video.vod_hits || "0",
+                        source: "api",
+                        video_url: video.vod_play_url || "", // for VideoCard
+                    })),
+                ];
 
-            allResults = koreanVideos.map(v => ({
-                id: v.id,
-                title: v.title,
-                views: v.views || 0,
-                thumbnail: v.thumbnail || "https://via.placeholder.com/320x180",
-            }));
-
-            // Search avdbapi categories
-            for (const [key, cat] of Object.entries(categories)) {
-                if (cat.type === "api") {
-                    const res = await fetch(cat.url);
-                    const json = await res.json();
-                    const filtered = (json.list || []).filter(video =>
-                        video.title?.toLowerCase().includes(query.toLowerCase())
-                    );
-                    const normalized = filtered.map(v => ({
-                        id: v.id,
-                        title: v.title || v.name || "No Title",
-                        views: v.views || "0",
-                        thumbnail: v.pic || "https://via.placeholder.com/320x180",
-                    }));
-                    allResults = [...allResults, ...normalized];
-                }
+                setVideos(combinedVideos);
+            } catch (err) {
+                console.error("Search error:", err);
+            } finally {
+                setLoading(false);
             }
-
-            setResults(allResults);
-        } catch (err) {
-            setError(err.message || "Error fetching search results");
         }
 
-        setLoading(false);
-    };
+        fetchSearchResults();
+    }, [term]);
 
     return (
-        <>
-            <h1 className="text-3xl text-white font-bold mb-6 text-center neon-text">Search</h1>
+        <div className="p-8">
+            <h1 className="text-2xl text-white mb-4">
+                Search Results for: <span className="text-yellow-400">{term}</span>
+            </h1>
 
-            <form onSubmit={handleSearch} className="mb-6 flex w-full max-w-md mx-auto">
-                <input
-                    type="text"
-                    value={query}
-                    onChange={e => setQuery(e.target.value)}
-                    placeholder="Search videos..."
-                    className="flex-1 px-3 py-2 rounded-l bg-gray-800 text-white focus:outline-none"
-                />
-                <button
-                    type="submit"
-                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-r"
-                >
-                    Search
-                </button>
-            </form>
-
-            {loading && <p className="text-white text-center">Searching...</p>}
-            {error && <p className="text-red-500 text-center">{error}</p>}
-            {!loading && !error && results.length === 0 && <p className="text-white text-center">No results found.</p>}
-
-            {!loading && !error && results.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-items-center">
-                    {results.map(video => <VideoCard key={video.id} video={video} />)}
+            {loading ? (
+                <p className="text-white">Loading...</p>
+            ) : videos.length === 0 ? (
+                <p className="text-gray-400">No results found.</p>
+            ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {videos.map((video) => (
+                        <VideoCard key={`${video.source}-${video.id}`} video={video} />
+                    ))}
                 </div>
             )}
-        </>
+        </div>
     );
 }

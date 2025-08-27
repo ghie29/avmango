@@ -5,7 +5,7 @@ import Footer from "./components/Footer";
 import Home from "./pages/Home";
 import Video from "./pages/Video";
 import Category from "./pages/Category";
-import Search from "./pages/Search";
+import SearchPage from "./pages/Search";
 
 function App() {
     return (
@@ -17,7 +17,7 @@ function App() {
                         <Route path="/" element={<Home />} />
                         <Route path="/video/:id" element={<Video />} />
                         <Route path="/category/:name" element={<Category />} />
-                        <Route path="/search" element={<Search />} />
+                        <Route path="/search/:term" element={<SearchPage />} />
                     </Routes>
                 </main>
                 <Footer />

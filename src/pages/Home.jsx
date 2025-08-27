@@ -9,6 +9,34 @@ export default function Home() {
     const [loading, setLoading] = useState(true);
     const [extraSections, setExtraSections] = useState({});
     const [loadingExtras, setLoadingExtras] = useState(true);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [filteredVideos, setFilteredVideos] = useState([]);
+    const [filteredExtraSections, setFilteredExtraSections] = useState({});
+
+    useEffect(() => {
+        if (!searchTerm) {
+            setFilteredVideos(videos);
+            setFilteredExtraSections(extraSections);
+            return;
+        }
+
+        const term = searchTerm.toLowerCase();
+
+        // Filter Korean / Supabase videos
+        const filteredMain = videos.filter(video =>
+            video.title.toLowerCase().includes(term)
+        );
+        setFilteredVideos(filteredMain);
+
+        // Filter all API categories
+        const filteredExtras = {};
+        for (const [slug, vids] of Object.entries(extraSections)) {
+            filteredExtras[slug] = vids.filter(video =>
+                video.title.toLowerCase().includes(term)
+            );
+        }
+        setFilteredExtraSections(filteredExtras);
+    }, [searchTerm, videos, extraSections]);
 
     useEffect(() => {
         async function fetchKoreanVideos() {
@@ -101,6 +129,7 @@ export default function Home() {
                                     src="https://ggonggane.com/storage/banner-image/eurostar-580x120.jpg"
                                     alt="Ad Banner 1"
                                     className="w-full h-auto"
+                                    loading="lazy"
                                 />
                             </a>
                         </div>
@@ -117,11 +146,11 @@ export default function Home() {
                     ) : videos.length === 0 ? (
                         <p className="text-gray-400">No videos found.</p>
                     ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {videos.map(video => (
-                                <VideoCard key={`${video.source}-${video.id}`} video={video} />
-                            ))}
-                        </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                    {filteredVideos.map(video => (
+                                        <VideoCard key={`${video.source}-${video.id}`} video={video} />
+                                    ))}
+                                </div>
                     )}
                 </div>
 
@@ -137,9 +166,9 @@ export default function Home() {
                             {/* Videos */}
                             {loadingExtras ? (
                                 <p className="text-white">Loading...</p>
-                            ) : extraSections[slug]?.length > 0 ? (
+                            ) : filteredExtraSections[slug]?.length > 0 ? (
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    {extraSections[slug].map(video => (
+                                    {filteredExtraSections[slug].map(video => (
                                         <VideoCard key={`${video.source}-${video.id}`} video={video} />
                                     ))}
                                 </div>
@@ -149,19 +178,19 @@ export default function Home() {
 
                             {/* ✅ Ad Block (multiple ads per category) */}
                             {cat.ads && cat.ads.length > 0 && (
-                                <div className="my-6 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                                <div className="my-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                     {cat.ads.map((ad, idx) => (
                                         <a key={idx} href={ad.link} target="_blank" rel="noopener noreferrer">
                                             <img
                                                 src={ad.image}
                                                 alt={`Ad ${idx + 1}`}
                                                 className="shadow-lg w-full h-auto"
+                                                loading="lazy"
                                             />
                                         </a>
                                     ))}
                                 </div>
                             )}
-
                         </div>
                     ))}
             </div>
