@@ -6,7 +6,7 @@ import { categories } from "../data/categories";
 import Sidebar from "../components/Sidebar";
 import Plyr from "plyr";
 import Hls from "hls.js";
-import "plyr-react/plyr.css";
+import "plyr/dist/plyr.css";
 
 export default function Video() {
     const { id } = useParams();
@@ -135,8 +135,8 @@ export default function Video() {
         if (container) {
             const videoEl = document.createElement("video");
             videoEl.className = "w-full h-full rounded-lg";
-            videoEl.setAttribute("playsinline", ""); // lowercase
-            videoEl.setAttribute("playsInline", ""); // camelCase
+            videoEl.setAttribute("playsinline", "");
+            videoEl.setAttribute("webkit-playsinline", ""); // ✅ older iOS
             videoEl.setAttribute("controls", "");
             container.innerHTML = "";
             container.appendChild(videoEl);
@@ -147,7 +147,7 @@ export default function Video() {
                     hls.loadSource(video.videoUrl);
                     hls.attachMedia(videoEl);
                 } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
-                    videoEl.src = video.videoUrl; // iOS native
+                    videoEl.src = video.videoUrl; // ✅ iOS Safari native HLS
                 }
             } else {
                 videoEl.src = video.videoUrl;
@@ -158,8 +158,8 @@ export default function Video() {
                 ratio: "16:9",
                 tooltips: { controls: true, seek: true },
                 controls: [
-                    'play-large', 'play', 'progress', 'current-time',
-                    'mute', 'volume', 'settings', 'fullscreen'
+                    "play-large", "play", "progress", "current-time",
+                    "mute", "volume", "settings", "fullscreen"
                 ]
             });
         }
