@@ -130,59 +130,78 @@ export default function Video() {
         const container = playerContainerRef.current;
         if (!container) return;
 
-        // Clear container and create video element
+        // Clear container
         container.innerHTML = "";
+
+        // Create video element
         const videoEl = document.createElement("video");
         videoEl.className = "w-full h-full rounded-lg";
         videoEl.setAttribute("playsinline", "");
         videoEl.setAttribute("webkit-playsinline", "");
         videoEl.setAttribute("controls", "");
-        videoEl.setAttribute("muted", ""); // required for mobile autoplay
+        videoEl.muted = true; // ✅ Required for autoplay on mobile
+        videoEl.autoplay = false;
+
         container.appendChild(videoEl);
 
         let plyrInstance;
 
         const initializePlyr = () => {
-            plyrInstance = new Plyr(videoEl, {
-                autoplay: false,
-                muted: true,
-                ratio: "16:9",
-                tooltips: { controls: true, seek: true },
-                controls: ["play-large", "play", "progress", "current-time", "mute", "volume", "settings", "fullscreen"],
-            });
-        };
-
-        // Handle HLS or MP4
-        if (video.videoUrl.endsWith(".m3u8")) {
-            if (Hls.isSupported()) {
-                const hls = new Hls();
-                hls.loadSource(video.videoUrl);
-                hls.attachMedia(videoEl);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    initializePlyr();
-                });
-            } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
-                videoEl.src = video.videoUrl;
-                videoEl.addEventListener("loadedmetadata", () => {
-                    initializePlyr();
-                });
-            } else {
-                console.warn("HLS not supported, using raw src");
-                videoEl.src = video.videoUrl;
-                videoEl.addEventListener("loadedmetadata", () => {
-                    initializePlyr();
+            // Only initialize once
+            if (!plyrInstance) {
+                plyrInstance = new Plyr(videoEl, {
+                    autoplay: false,
+                    muted: true,
+                    ratio: "16:9",
+                    tooltips: { controls: true, seek: true },
+                    controls: [
+                        "play-large",
+                        "play",
+                        "progress",
+                        "current-time",
+                        "mute",
+                        "volume",
+                        "settings",
+                        "fullscreen",
+                    ],
                 });
             }
-        } else {
-            // MP4 fallback
-            videoEl.src = video.videoUrl;
-            videoEl.addEventListener("loadedmetadata", () => {
-                initializePlyr();
-            });
-        }
+        };
 
+        const setupSource = () => {
+            if (video.videoUrl.endsWith(".m3u8")) {
+                // HLS playback
+                if (Hls.isSupported()) {
+                    const hls = new Hls({ autoStartLoad: true, capLevelToPlayerSize: true });
+                    hls.loadSource(video.videoUrl);
+                    hls.attachMedia(videoEl);
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        initializePlyr();
+                    });
+                } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
+                    // iOS Safari native HLS
+                    videoEl.src = video.videoUrl;
+                    videoEl.type = "application/x-mpegURL";
+                    videoEl.addEventListener("loadedmetadata", () => initializePlyr());
+                } else {
+                    // Fallback raw src
+                    videoEl.src = video.videoUrl;
+                    videoEl.addEventListener("loadedmetadata", () => initializePlyr());
+                }
+            } else {
+                // MP4 fallback
+                videoEl.src = video.videoUrl;
+                videoEl.addEventListener("loadedmetadata", () => initializePlyr());
+            }
+        };
+
+        // Run setup
+        setupSource();
+
+        // Cleanup
         return () => plyrInstance?.destroy();
     }, [video]);
+
 
     if (loading) return <p className="text-white p-6 text-center">Loading...</p>;
     if (error) return <p className="text-red-500 p-6 text-center">{error}</p>;
