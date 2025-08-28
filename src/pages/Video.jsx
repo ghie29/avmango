@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import supabase from "../../supabaseClient";
 import VideoCard from "../components/VideoCard";
 import { categories } from "../data/categories";
@@ -7,11 +7,10 @@ import Sidebar from "../components/Sidebar";
 import Plyr from "plyr";
 import Hls from "hls.js";
 import "plyr/dist/plyr.css";
-import { validate as isUuid } from 'uuid'; // npm install uuid if not already
+import { validate as isUuid } from "uuid";
 
 export default function Video() {
     const { id } = useParams();
-    const navigate = useNavigate();
     const [video, setVideo] = useState(null);
     const [related, setRelated] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -45,18 +44,17 @@ export default function Video() {
 
                 // 2️⃣ Korean Supabase videos
                 if (!fetchedVideo) {
-                    let query = supabase.from("videos").select("*");
+                    const query = isUuid(id)
+                        ? `id.eq.${id}`
+                        : `slug.eq.${id}`;
 
-                    // check if id is valid UUID
-                    if (isUuid(id)) {
-                        query = query.or(`id.eq.${id},slug.eq.${id}`);
-                    } else {
-                        query = query.eq("slug", id);
-                    }
+                    const { data: koreanVideo, error: fetchError } = await supabase
+                        .from("videos")
+                        .select("*")
+                        .or(query)
+                        .maybeSingle();
 
-                    const { data: koreanVideo, error: fetchError } = await query.maybeSingle();
                     if (fetchError) throw fetchError;
-
                     if (koreanVideo) {
                         fetchedVideo = koreanVideo;
                         categoryType = "supabase";
@@ -68,10 +66,7 @@ export default function Video() {
                 // -------------------- Normalize video URL --------------------
                 let videoUrl = "";
                 if (categoryType === "supabase") {
-                    videoUrl =
-                        fetchedVideo.video_url ||
-                        fetchedVideo.episodes?.server_data?.Full?.link_embed ||
-                        "";
+                    videoUrl = fetchedVideo.video_url || "";
                 } else {
                     videoUrl = fetchedVideo.episodes?.server_data?.Full?.link_embed || "";
                 }
@@ -82,10 +77,7 @@ export default function Video() {
                     videoUrl,
                     type: categoryType,
                     description: fetchedVideo.description || "No description available",
-                    thumbnail:
-                        fetchedVideo.poster_url ||
-                        fetchedVideo.thumb_url ||
-                        "https://via.placeholder.com/640x360",
+                    thumbnail: fetchedVideo.poster_url || fetchedVideo.thumb_url || "https://via.placeholder.com/640x360",
                 });
 
                 // -------------------- Related Videos --------------------
@@ -94,9 +86,8 @@ export default function Video() {
                     const { data: rel } = await supabase
                         .from("videos")
                         .select("*")
-                        .neq("slug", fetchedVideo.slug)
+                        .neq("slug", id)
                         .limit(8);
-
                     relatedVideos = rel.map(v => ({
                         id: v.id,
                         title: v.title,
@@ -120,9 +111,7 @@ export default function Video() {
                             }));
                     }
                 }
-
                 setRelated(relatedVideos);
-
             } catch (err) {
                 console.error(err);
                 setError(err.message || "Error loading video");
@@ -139,50 +128,56 @@ export default function Video() {
         if (!video || !video.videoUrl || video.type !== "supabase") return;
 
         const container = playerContainerRef.current;
+        if (!container) return;
+
+        // Clear container and create video element
+        container.innerHTML = "";
+        const videoEl = document.createElement("video");
+        videoEl.className = "w-full h-full rounded-lg";
+        videoEl.setAttribute("playsinline", "");
+        videoEl.setAttribute("webkit-playsinline", "");
+        videoEl.setAttribute("controls", "");
+        videoEl.setAttribute("muted", ""); // required for mobile autoplay
+        container.appendChild(videoEl);
+
         let plyrInstance;
 
-        if (container) {
-            const videoEl = document.createElement("video");
-            videoEl.className = "w-full h-full rounded-lg";
-            videoEl.setAttribute("playsinline", "");
-            videoEl.setAttribute("webkit-playsinline", "");
-            videoEl.setAttribute("controls", "");
-            videoEl.setAttribute("muted", ""); // ✅ mobile autoplay
-
-            container.innerHTML = "";
-            container.appendChild(videoEl);
-
-            // ---- Handle .m3u8 and .mp4 ----
-            if (video.videoUrl.endsWith(".m3u8")) {
-                if (Hls.isSupported()) {
-                    const hls = new Hls();
-                    hls.loadSource(video.videoUrl);
-                    hls.attachMedia(videoEl);
-                } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
-                    videoEl.src = video.videoUrl;
-                    videoEl.setAttribute("type", "application/x-mpegURL");
-                } else {
-                    videoEl.src = video.videoUrl;
-                }
-            } else {
-                videoEl.src = video.videoUrl; // mp4
-            }
-
+        const initializePlyr = () => {
             plyrInstance = new Plyr(videoEl, {
                 autoplay: false,
                 muted: true,
                 ratio: "16:9",
                 tooltips: { controls: true, seek: true },
-                controls: [
-                    "play-large",
-                    "play",
-                    "progress",
-                    "current-time",
-                    "mute",
-                    "volume",
-                    "settings",
-                    "fullscreen",
-                ],
+                controls: ["play-large", "play", "progress", "current-time", "mute", "volume", "settings", "fullscreen"],
+            });
+        };
+
+        // Handle HLS or MP4
+        if (video.videoUrl.endsWith(".m3u8")) {
+            if (Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(video.videoUrl);
+                hls.attachMedia(videoEl);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    initializePlyr();
+                });
+            } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
+                videoEl.src = video.videoUrl;
+                videoEl.addEventListener("loadedmetadata", () => {
+                    initializePlyr();
+                });
+            } else {
+                console.warn("HLS not supported, using raw src");
+                videoEl.src = video.videoUrl;
+                videoEl.addEventListener("loadedmetadata", () => {
+                    initializePlyr();
+                });
+            }
+        } else {
+            // MP4 fallback
+            videoEl.src = video.videoUrl;
+            videoEl.addEventListener("loadedmetadata", () => {
+                initializePlyr();
             });
         }
 
@@ -195,7 +190,9 @@ export default function Video() {
 
     return (
         <div className="flex flex-col lg:flex-row w-full px-2 gap-6 mt-2">
+            {/* Main Content */}
             <div className="flex-1 flex flex-col items-center">
+                {/* Player + Title */}
                 <div className="w-full max-w-[100%] mx-auto mb-6">
                     {video.type === "supabase" ? (
                         <div ref={playerContainerRef} className="w-full mb-4"></div>
@@ -211,21 +208,21 @@ export default function Video() {
                         </div>
                     )}
 
+                    {/* Title & Description */}
                     <h1 className="font-bold mt-2 text-left text-white neon-text line-clamp-2 text-2xl">
                         {video.title}
                     </h1>
-                    <p className="mt-2 text-left text-white line-clamp-3">
-                        {video.description}
-                    </p>
+                    <p className="mt-2 text-left text-white line-clamp-3">{video.description}</p>
                 </div>
 
+                {/* Related Videos */}
                 {related.length > 0 && (
                     <div className="w-full max-w-7xl mt-8">
                         <h2 className="text-xl text-white font-bold mb-4 text-center neon-text">
                             More Videos
                         </h2>
                         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 justify-items-center">
-                            {related.map(v => (
+                            {related.map((v) => (
                                 <VideoCard key={v.id} video={v} />
                             ))}
                         </div>
@@ -233,6 +230,7 @@ export default function Video() {
                 )}
             </div>
 
+            {/* Right Sidebar */}
             <Sidebar />
         </div>
     );
