@@ -135,8 +135,9 @@ export default function Video() {
         if (container) {
             const videoEl = document.createElement("video");
             videoEl.className = "w-full h-full rounded-lg";
-            videoEl.setAttribute("playsInline", ""); // ✅ keep inline playback
-            videoEl.setAttribute("controls", "");    // ✅ user must tap play
+            videoEl.setAttribute("playsinline", ""); // lowercase
+            videoEl.setAttribute("playsInline", ""); // camelCase
+            videoEl.setAttribute("controls", "");
             container.innerHTML = "";
             container.appendChild(videoEl);
 
@@ -145,18 +146,21 @@ export default function Video() {
                     const hls = new Hls();
                     hls.loadSource(video.videoUrl);
                     hls.attachMedia(videoEl);
-                } else {
-                    // Safari native HLS
-                    videoEl.src = video.videoUrl;
+                } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
+                    videoEl.src = video.videoUrl; // iOS native
                 }
             } else {
                 videoEl.src = video.videoUrl;
             }
 
             plyrInstance = new Plyr(videoEl, {
-                autoplay: false, // ❌ no autoplay if not muted
+                autoplay: false,
                 ratio: "16:9",
                 tooltips: { controls: true, seek: true },
+                controls: [
+                    'play-large', 'play', 'progress', 'current-time',
+                    'mute', 'volume', 'settings', 'fullscreen'
+                ]
             });
         }
 
