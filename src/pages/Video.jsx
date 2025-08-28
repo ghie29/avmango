@@ -129,14 +129,18 @@ export default function Video() {
     useEffect(() => {
         if (!video || !video.videoUrl || video.type !== "supabase") return;
 
-        const container = playerContainerRef.current;
-        let plyrInstance;
+        const timer = setTimeout(() => {
+            const container = playerContainerRef.current;
+            if (!container) {
+                console.warn("No container found for player");
+                return;
+            }
 
-        if (container) {
+            let plyrInstance;
             const videoEl = document.createElement("video");
             videoEl.className = "w-full h-full rounded-lg";
             videoEl.setAttribute("playsinline", "");
-            videoEl.setAttribute("webkit-playsinline", ""); // ✅ older iOS
+            videoEl.setAttribute("webkit-playsinline", "");
             videoEl.setAttribute("controls", "");
             container.innerHTML = "";
             container.appendChild(videoEl);
@@ -147,7 +151,7 @@ export default function Video() {
                     hls.loadSource(video.videoUrl);
                     hls.attachMedia(videoEl);
                 } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
-                    videoEl.src = video.videoUrl; // ✅ iOS Safari native HLS
+                    videoEl.src = video.videoUrl; // iOS Safari native HLS
                 }
             } else {
                 videoEl.src = video.videoUrl;
@@ -162,9 +166,9 @@ export default function Video() {
                     "mute", "volume", "settings", "fullscreen"
                 ]
             });
-        }
+        }, 100); // wait for DOM to mount
 
-        return () => plyrInstance?.destroy();
+        return () => clearTimeout(timer);
     }, [video]);
 
 
