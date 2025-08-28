@@ -126,7 +126,6 @@ export default function Video() {
     }, [id]);
 
     // -------------------- Plyr Setup for Korean Supabase --------------------
-    // -------------------- Plyr Setup for Korean Supabase --------------------
     useEffect(() => {
         if (!video || !video.videoUrl || video.type !== "supabase") return;
 
@@ -140,30 +139,33 @@ export default function Video() {
             videoEl.setAttribute("playsinline", "");
             videoEl.setAttribute("webkit-playsinline", "");
             videoEl.setAttribute("controls", "");
-            videoEl.setAttribute("muted", "");              // ✅ iOS autoplay policy
+            videoEl.setAttribute("muted", ""); // ✅ required for mobile autoplay policies
 
             // Clear container and append
             container.innerHTML = "";
             container.appendChild(videoEl);
 
-            // ---- Always assign a source ----
+            // ---- Handle .m3u8 and .mp4 ----
             if (video.videoUrl.endsWith(".m3u8")) {
                 if (Hls.isSupported()) {
+                    console.log("📺 Using Hls.js for playback");
                     const hls = new Hls();
                     hls.loadSource(video.videoUrl);
                     hls.attachMedia(videoEl);
                 } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
-                    // iOS Safari fallback
+                    console.log("🍏 Using Safari native HLS");
                     videoEl.src = video.videoUrl;
+                    videoEl.setAttribute("type", "application/x-mpegURL"); // 👈 iOS requires this
                 } else {
-                    console.warn("HLS not supported, setting raw src");
-                    videoEl.src = video.videoUrl; // ✅ last resort
+                    console.warn("⚠️ HLS not supported, fallback to raw src");
+                    videoEl.src = video.videoUrl;
                 }
             } else {
-                videoEl.src = video.videoUrl; // mp4
+                console.log("🎞 Using direct mp4 src");
+                videoEl.src = video.videoUrl;
             }
 
-            // ---- Initialize Plyr once source is set ----
+            // ---- Initialize Plyr after source is set ----
             plyrInstance = new Plyr(videoEl, {
                 autoplay: false,
                 muted: true,
@@ -181,7 +183,7 @@ export default function Video() {
                 ],
             });
 
-            console.log("✅ Plyr initialized", video.videoUrl);
+            console.log("✅ Plyr initialized with:", video.videoUrl);
         }
 
         return () => plyrInstance?.destroy();
