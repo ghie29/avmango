@@ -4,6 +4,7 @@ import supabase from "../../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import { categories } from "../data/categories";
 import AdTopGrid from "../components/AdTopGrid";
+import { Helmet } from 'react-helmet';
 
 export default function Home() {
     const [videos, setVideos] = useState([]);
@@ -113,6 +114,15 @@ export default function Home() {
 
     return (
         <div className="p-2 flex flex-col lg:flex-row gap-2 mt-2">
+            <Helmet>
+                <title>AVMANGO – Your Ultimate Adult Video Platform</title>
+                <meta name="description" content="AVMANGO is your ultimate adult video platform, featuring Korean, Censored, Uncensored, Amateur, Chinese AV, and English Subtitled content." />
+                <meta name="keywords" content="AVMANGO, adult videos, Korean AV, Censored AV, Uncensored AV, Amateur AV, Chinese AV, English Subtitles" />
+                <meta name="robots" content="index, follow" />
+                <meta property="og:title" content="AVMANGO – Adult Video Platform" />
+                <meta property="og:description" content="Browse, explore, and indulge in a modern adult video experience like never before." />
+                <meta property="og:type" content="website" />
+            </Helmet>
             {/* Main content */}
             <div className="flex-1 -mt-10 space-y-2 mt-2">
 

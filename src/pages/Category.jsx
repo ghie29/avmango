@@ -5,28 +5,39 @@ import VideoCard from "../components/VideoCard";
 import { categories } from "../data/categories";
 import Sidebar from "../components/Sidebar";
 import AdTopGrid from "../components/AdTopGrid";
+import { Helmet } from "react-helmet";
 
-export default function Category() {
+export default function Category({ categoryName: propCategoryName }) {
     const { name } = useParams();
-    const [videos, setVideos] = useState([]); // videos from current API page
+    const categoryName = propCategoryName || name;
+
+    const [videos, setVideos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const [currentUIPage, setCurrentUIPage] = useState(1); // UI page (24 per page)
-    const [totalUIPages, setTotalUIPages] = useState(1); // total UI pages
-    const [currentAPIPage, setCurrentAPIPage] = useState(1); // current API page
-    const [apiPageData, setApiPageData] = useState([]); // 1000 videos from API
-    const [nextAPIPageData, setNextAPIPageData] = useState(null); // preloaded next API page
+    const [currentUIPage, setCurrentUIPage] = useState(1);
+    const [totalUIPages, setTotalUIPages] = useState(1);
+    const [currentAPIPage, setCurrentAPIPage] = useState(1);
+    const [apiPageData, setApiPageData] = useState([]);
+    const [nextAPIPageData, setNextAPIPageData] = useState(null);
 
     const videosPerUIPage = 24;
     const videosPerAPIPage = 1000;
+
+    // Format display name for heading
+    const displayName = categoryName
+        ? categoryName
+            .replace(/([A-Z])/g, " $1")
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (l) => l.toUpperCase())
+        : "";
 
     useEffect(() => {
         async function fetchSupabase() {
             setLoading(true);
             setError(null);
             try {
-                const category = categories[name];
+                const category = categories[categoryName];
                 if (!category) throw new Error("Category not found");
 
                 if (category.type === "supabase") {
@@ -42,8 +53,7 @@ export default function Category() {
                         .eq("board_id", boardData.id)
                         .order("created_at", { ascending: false });
 
-                    const allVideos = videosData.map(video => ({
-                        // Use slug or code first for URL, fallback to id
+                    const allVideos = videosData.map((video) => ({
                         urlId: video.slug || video.code || video.id,
                         id: video.id,
                         title: video.title || "No Title",
@@ -56,7 +66,7 @@ export default function Category() {
                     setTotalUIPages(Math.ceil(allVideos.length / videosPerUIPage));
                     setLoading(false);
                 } else {
-                    await fetchAPIPage(1); // fetch first API page
+                    await fetchAPIPage(1);
                 }
             } catch (err) {
                 setError(err.message || "Error fetching videos");
@@ -65,19 +75,18 @@ export default function Category() {
         }
 
         fetchSupabase();
-    }, [name]);
+    }, [categoryName]);
 
-    // Fetch API page
     const fetchAPIPage = async (apiPage, preloadNext = true) => {
         setLoading(true);
         setError(null);
         try {
-            const category = categories[name];
+            const category = categories[categoryName];
             const res = await fetch(`${category.url}&page=${apiPage}`);
             const json = await res.json();
             const list = Array.isArray(json.list) ? json.list : json.id ? [json] : [];
 
-            const mappedVideos = list.map(v => ({
+            const mappedVideos = list.map((v) => ({
                 id: v.id,
                 title: v.title || v.name || v.origin_name || v.vod_name || "No Title",
                 views: v.vod_play || "0",
@@ -91,12 +100,11 @@ export default function Category() {
             setTotalUIPages(Math.ceil(totalUI));
             setCurrentUIPage(1);
 
-            // Preload next API page in background
             if (preloadNext && apiPage < json.pagecount) {
                 const nextRes = await fetch(`${category.url}&page=${apiPage + 1}`);
                 const nextJson = await nextRes.json();
                 const nextList = Array.isArray(nextJson.list) ? nextJson.list : nextJson.id ? [nextJson] : [];
-                const nextMapped = nextList.map(v => ({
+                const nextMapped = nextList.map((v) => ({
                     id: v.id,
                     title: v.title || v.name || v.origin_name || v.vod_name || "No Title",
                     views: v.vod_play || "0",
@@ -106,14 +114,12 @@ export default function Category() {
             } else {
                 setNextAPIPageData(null);
             }
-
         } catch (err) {
             setError("Error fetching API page " + apiPage);
         }
         setLoading(false);
     };
 
-    // Slice 24 per UI page from current API page
     const startIndex = ((currentUIPage - 1) * videosPerUIPage) % videosPerAPIPage;
     const paginatedVideos = apiPageData.slice(startIndex, startIndex + videosPerUIPage);
 
@@ -125,16 +131,12 @@ export default function Category() {
         if (newAPIPage === currentAPIPage) {
             setCurrentUIPage(uiPage);
         } else if (nextAPIPageData && newAPIPage === currentAPIPage + 1) {
-            // Use preloaded next API page
             setApiPageData(nextAPIPageData);
             setCurrentAPIPage(newAPIPage);
             setCurrentUIPage(uiPage);
             setNextAPIPageData(null);
-
-            // Preload the following page
             await fetchAPIPage(newAPIPage + 1, true);
         } else {
-            // Fetch normally if skipping pages
             await fetchAPIPage(newAPIPage, true);
             setCurrentUIPage(uiPage);
         }
@@ -144,26 +146,21 @@ export default function Category() {
         const pages = [];
 
         if (window.innerWidth < 640) {
-            // Mobile: show max 5 pages
             const maxPages = 5;
             let start = Math.max(1, currentUIPage - 2);
             let end = start + maxPages - 1;
-
             if (end > totalUIPages) {
                 end = totalUIPages;
                 start = Math.max(1, end - maxPages + 1);
             }
-
             for (let i = start; i <= end; i++) pages.push(i);
         } else {
-            // Desktop: use ellipsis logic
             const delta = 2;
             if (totalUIPages <= 7) {
                 for (let i = 1; i <= totalUIPages; i++) pages.push(i);
             } else {
                 const left = Math.max(2, currentUIPage - delta);
                 const right = Math.min(totalUIPages - 1, currentUIPage + delta);
-
                 pages.push(1);
                 if (left > 2) pages.push("...");
                 for (let i = left; i <= right; i++) pages.push(i);
@@ -175,16 +172,24 @@ export default function Category() {
         return pages;
     };
 
-    const displayName = name
-        ? name
-            .replace(/([A-Z])/g, " $1")
-            .replace(/_/g, " ")
-            .replace(/\b\w/g, l => l.toUpperCase())
-        : "";
-
     return (
         <>
-            
+            <Helmet>
+                <title>{displayName} Videos – AVMANGO</title>
+                <meta
+                    name="description"
+                    content={`Explore ${displayName} adult videos on AVMANGO, curated for lovers of Korean, Censored, Uncensored, Amateur, Chinese AV, and English Subtitled content.`}
+                />
+                <meta
+                    name="keywords"
+                    content={`AVMANGO, ${displayName}, adult videos, AV, streaming, download`}
+                />
+                <meta name="robots" content="index, follow" />
+                <meta property="og:title" content={`${displayName} Videos – AVMANGO`} />
+                <meta property="og:description" content={`Browse ${displayName} adult videos on AVMANGO.`} />
+                <meta property="og:type" content="website" />
+            </Helmet>
+
             <h1 className="ml-1 text-3xl font-extrabold mb-6 text-white capitalize">
                 {displayName}
             </h1>
@@ -197,21 +202,14 @@ export default function Category() {
 
             {!loading && !error && paginatedVideos.length > 0 && (
                 <div className="flex flex-col lg:flex-row gap-6 max-w-[99%] mx-auto justify-center1">
-                    {/* Left: Video Grid */}
                     <div className="flex-1 mt-2">
-
-                        {/* Ad Block */}
                         <AdTopGrid />
-
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {paginatedVideos.map(video => {
-                                // Pass urlId for VideoCard link
+                            {paginatedVideos.map((video) => {
                                 const linkId = video.urlId || video.id;
                                 return <VideoCard key={video.id} video={{ ...video, id: linkId }} />;
                             })}
                         </div>
-
-                        {/* Pagination */}
                         <div className="flex justify-center mt-6 space-x-2 flex-wrap">
                             <button
                                 onClick={() => handlePageChange(currentUIPage - 1)}
@@ -220,7 +218,6 @@ export default function Category() {
                             >
                                 Prev
                             </button>
-
                             {getPageNumbers().map((number, idx) =>
                                 number === "..." ? (
                                     <span key={idx} className="px-2 py-1 text-white">…</span>
@@ -228,13 +225,15 @@ export default function Category() {
                                     <button
                                         key={idx}
                                         onClick={() => handlePageChange(number)}
-                                        className={`px-3 py-1 rounded ${currentUIPage === number ? "bg-yellow-500 text-black font-bold" : "bg-gray-700 text-white hover:bg-gray-600"}`}
+                                        className={`px-3 py-1 rounded ${currentUIPage === number
+                                                ? "bg-yellow-500 text-black font-bold"
+                                                : "bg-gray-700 text-white hover:bg-gray-600"
+                                            }`}
                                     >
                                         {number}
                                     </button>
                                 )
                             )}
-
                             <button
                                 onClick={() => handlePageChange(currentUIPage + 1)}
                                 disabled={currentUIPage === totalUIPages}
@@ -244,7 +243,6 @@ export default function Category() {
                             </button>
                         </div>
                     </div>
-                    {/* Right Sidebar */}
                     <Sidebar />
                 </div>
             )}

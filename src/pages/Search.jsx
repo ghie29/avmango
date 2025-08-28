@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import VideoCard from "../components/VideoCard";
 import supabase from "../../supabaseClient";
 import axios from "axios";
+import { Helmet } from "react-helmet";
 
 export default function Search() {
     const { term } = useParams(); // from /search/:term
@@ -21,8 +22,8 @@ export default function Search() {
 
                 if (supabaseError) throw supabaseError;
 
-                const normalizedSupabase = supabaseData.map(video => ({
-                    id: video.slug || video.code || video.id, // ✅ route-safe ID
+                const normalizedSupabase = supabaseData.map((video) => ({
+                    id: video.slug || video.code || video.id,
                     title: video.title || "No Title",
                     thumbnail: video.thumbnail || "https://via.placeholder.com/320x180",
                     views: video.views || "0",
@@ -36,8 +37,8 @@ export default function Search() {
                 );
                 const avdbData = avdbResponse.data.list || [];
 
-                const normalizedAPI = avdbData.map(video => ({
-                    id: video.slug || video.code || video.vod_id || video.id, // ✅ route-safe ID
+                const normalizedAPI = avdbData.map((video) => ({
+                    id: video.slug || video.code || video.vod_id || video.id,
                     title: video.name || video.title || "No Title",
                     thumbnail: video.thumb_url || video.poster_url || "https://via.placeholder.com/320x180",
                     views: video.vod_hits || "0",
@@ -57,10 +58,34 @@ export default function Search() {
         fetchSearchResults();
     }, [term]);
 
+    const formattedTerm = term
+        ? term
+            .replace(/([A-Z])/g, " $1")
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (l) => l.toUpperCase())
+        : "";
+
     return (
         <div className="p-8">
+            {/* Helmet SEO */}
+            <Helmet>
+                <title>Search results for "{formattedTerm}" – AVMANGO</title>
+                <meta
+                    name="description"
+                    content={`Search adult videos for "${formattedTerm}" on AVMANGO, including Korean, Censored, Uncensored, Amateur, Chinese AV, and English Subtitled content.`}
+                />
+                <meta
+                    name="keywords"
+                    content={`AVMANGO, adult videos, search, ${formattedTerm}, streaming, download`}
+                />
+                <meta name="robots" content="index, follow" />
+                <meta property="og:title" content={`Search results for "${formattedTerm}" – AVMANGO`} />
+                <meta property="og:description" content={`Find "${formattedTerm}" adult videos on AVMANGO.`} />
+                <meta property="og:type" content="website" />
+            </Helmet>
+
             <h1 className="text-2xl text-white mb-4">
-                Search Results for: <span className="text-yellow-400">{term}</span>
+                Search Results for: <span className="text-yellow-400">{formattedTerm}</span>
             </h1>
 
             {loading ? (
@@ -69,7 +94,7 @@ export default function Search() {
                 <p className="text-gray-400">No results found.</p>
             ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {videos.map(video => (
+                    {videos.map((video) => (
                         <VideoCard key={`${video.source}-${video.id}`} video={video} />
                     ))}
                 </div>
