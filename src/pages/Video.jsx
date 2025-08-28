@@ -135,21 +135,26 @@ export default function Video() {
         if (container) {
             const videoEl = document.createElement("video");
             videoEl.className = "w-full h-full rounded-lg";
-            videoEl.setAttribute("playsinline", "");
-            videoEl.setAttribute("controls", "");
+            videoEl.setAttribute("playsInline", ""); // ✅ keep inline playback
+            videoEl.setAttribute("controls", "");    // ✅ user must tap play
             container.innerHTML = "";
             container.appendChild(videoEl);
 
-            if (video.videoUrl.endsWith(".m3u8") && Hls.isSupported()) {
-                const hls = new Hls();
-                hls.loadSource(video.videoUrl);
-                hls.attachMedia(videoEl);
+            if (video.videoUrl.endsWith(".m3u8")) {
+                if (Hls.isSupported()) {
+                    const hls = new Hls();
+                    hls.loadSource(video.videoUrl);
+                    hls.attachMedia(videoEl);
+                } else {
+                    // Safari native HLS
+                    videoEl.src = video.videoUrl;
+                }
             } else {
                 videoEl.src = video.videoUrl;
             }
 
             plyrInstance = new Plyr(videoEl, {
-                autoplay: false,
+                autoplay: false, // ❌ no autoplay if not muted
                 ratio: "16:9",
                 tooltips: { controls: true, seek: true },
             });
@@ -157,6 +162,7 @@ export default function Video() {
 
         return () => plyrInstance?.destroy();
     }, [video]);
+
 
     if (loading) return <p className="text-white p-6 text-center">Loading...</p>;
     if (error) return <p className="text-red-500 p-6 text-center">{error}</p>;

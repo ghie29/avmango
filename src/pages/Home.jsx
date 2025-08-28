@@ -114,7 +114,7 @@ export default function Home() {
     }, []);
 
     return (
-        <div className="p-8 flex flex-col lg:flex-row gap-8">
+        <div className="p-2 flex flex-col lg:flex-row gap-8">
             {/* Main content */}
             <div className="flex-1 -mt-10 space-y-10">
                 {/* Korean Section */}
@@ -178,7 +178,7 @@ export default function Home() {
 
                             {/* ✅ Ad Block (multiple ads per category) */}
                             {cat.ads && cat.ads.length > 0 && (
-                                <div className="my-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div className="my-6 grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                     {cat.ads.map((ad, idx) => (
                                         <a key={idx} href={ad.link} target="_blank" rel="noopener noreferrer">
                                             <img
