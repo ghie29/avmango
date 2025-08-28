@@ -14,7 +14,6 @@ export default function Video() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // -------------------- Fetch Video --------------------
     useEffect(() => {
         async function fetchVideo() {
             setLoading(true);
@@ -24,16 +23,21 @@ export default function Video() {
                 let fetchedVideo = null;
                 let categoryType = "unknown";
 
-                // 1️⃣ Check API categories
+                // 1️⃣ Check API categories (AVDB/AVDPI)
                 for (const cat of Object.values(categories)) {
                     if (cat.type === "api") {
                         const res = await fetch(cat.url);
                         const json = await res.json();
                         const list = Array.isArray(json.list) ? json.list : json.id ? [json] : [];
-                        const found = list.find((v) => v.id == id);
+                        const found = list.find(v => v.id == id);
                         if (found) {
                             fetchedVideo = found;
                             categoryType = "api";
+                            // ✅ Set iframe URL
+                            fetchedVideo.videoUrl =
+                                found.episodes?.server_data?.Full?.link_embed ||
+                                found.video_url ||
+                                "";
                             break;
                         }
                     }
@@ -56,54 +60,41 @@ export default function Video() {
                     if (koreanVideo) {
                         fetchedVideo = koreanVideo;
                         categoryType = "supabase";
-                        // Prefer .m3u8 URL if available
                         fetchedVideo.videoUrl = koreanVideo.video_url_m3u8 || koreanVideo.video_url;
                     }
                 }
 
                 if (!fetchedVideo) throw new Error("Video not found");
 
-                const videoUrl =
-                    categoryType === "supabase"
-                        ? fetchedVideo.videoUrl
-                        : fetchedVideo.episodes?.server_data?.Full?.link_embed || "";
-
-                setVideo({
-                    id: fetchedVideo.id,
-                    title: fetchedVideo.title || fetchedVideo.name || fetchedVideo.origin_name || "No Title",
-                    videoUrl,
-                    type: categoryType,
-                    description: fetchedVideo.description || "No description available",
-                    thumbnail:
-                        fetchedVideo.poster_url ||
-                        fetchedVideo.thumb_url ||
-                        "https://via.placeholder.com/640x360",
-                });
-
-                // -------------------- Related Videos --------------------
+                // --- Related Videos ---
                 let relatedVideos = [];
                 if (categoryType === "supabase") {
-                    const { data: rel } = await supabase
+                    const { data: rel, error: relError } = await supabase
                         .from("videos")
                         .select("*")
-                        .neq("slug", fetchedVideo.slug)
+                        .not("id", "eq", fetchedVideo.id)
                         .limit(8);
-                    relatedVideos = rel.map((v) => ({
+
+                    if (relError) console.error(relError);
+
+                    relatedVideos = (rel || []).map(v => ({
                         id: v.id,
-                        title: v.title,
+                        slug: v.slug,
+                        title: v.title || v.name || "No Title",
                         thumbnail: v.thumbnail || "https://via.placeholder.com/320x180",
                         views: v.views || 0,
                     }));
                 } else if (categoryType === "api") {
-                    const apiCategory = Object.values(categories).find((c) => c.type === "api");
+                    const apiCategory = Object.values(categories).find(c => c.type === "api");
                     if (apiCategory) {
                         const res = await fetch(apiCategory.url);
                         const json = await res.json();
                         const list = Array.isArray(json.list) ? json.list : json.id ? [json] : [];
+
                         relatedVideos = list
-                            .filter((v) => v.id != id)
+                            .filter(v => v.id != id)
                             .slice(0, 8)
-                            .map((v) => ({
+                            .map(v => ({
                                 id: v.id,
                                 title: v.title || v.name || v.origin_name || "No Title",
                                 thumbnail: v.poster_url || v.thumb_url || "https://via.placeholder.com/320x180",
@@ -112,7 +103,18 @@ export default function Video() {
                     }
                 }
 
+                // --- Set Video & Related ---
+                setVideo({
+                    id: fetchedVideo.id,
+                    title: fetchedVideo.title || fetchedVideo.name || "No Title",
+                    videoUrl: fetchedVideo.videoUrl || fetchedVideo.video_url,
+                    type: categoryType,
+                    description: fetchedVideo.description || "No description available",
+                    thumbnail: fetchedVideo.poster_url || fetchedVideo.thumb_url || "https://via.placeholder.com/640x360",
+                });
+
                 setRelated(relatedVideos);
+
             } catch (err) {
                 console.error(err);
                 setError(err.message || "Error loading video");
@@ -132,6 +134,7 @@ export default function Video() {
         <div className="flex flex-col lg:flex-row w-full px-2 gap-6 mt-2">
             <div className="flex-1 flex flex-col items-center">
                 <div className="w-full max-w-[100%] mx-auto mb-6">
+                    {/* Video Player */}
                     {video.type === "supabase" ? (
                         <div className="w-full aspect-video rounded-lg overflow-hidden">
                             <video
@@ -139,7 +142,7 @@ export default function Video() {
                                 controls
                                 autoPlay={false}
                                 playsInline
-                                ref={(videoEl) => {
+                                ref={videoEl => {
                                     if (!videoEl) return;
                                     if (video.videoUrl.endsWith(".m3u8") && Hls.isSupported()) {
                                         const hls = new Hls();
@@ -151,15 +154,17 @@ export default function Video() {
                                 }}
                             />
                         </div>
-                    ) : (
-                        <iframe
-                            src={video.videoUrl}
-                            title={video.title}
-                            allowFullScreen
-                            loading="lazy"
-                            className="w-full aspect-video rounded-lg"
-                        />
-                    )}
+                    ) : video.type === "api" ? (
+                        <div className="relative w-full rounded-lg shadow-lg overflow-hidden aspect-video">
+                            <iframe
+                                src={video.videoUrl}
+                                title={video.title}
+                                allowFullScreen
+                                loading="lazy"
+                                className="absolute top-0 left-0 w-full h-full"
+                            />
+                        </div>
+                    ) : null}
 
                     <h1 className="font-bold mt-2 text-left text-white neon-text line-clamp-2 text-2xl">
                         {video.title}
@@ -167,17 +172,20 @@ export default function Video() {
                     <p className="mt-2 text-left text-white line-clamp-3">{video.description}</p>
                 </div>
 
-                {related.length > 0 && (
-                    <div className="w-full max-w-7xl mt-8">
-                        <h2 className="text-xl text-white font-bold mb-4 text-center neon-text">
+                {/* Related Videos */}
+                {related.length > 0 ? (
+                    <div className="w-full max-w-7xl mt-8 mx-auto">
+                        <h2 className="text-2xl sm:text-2xl md:text-3xl text-white font-bold mb-6 text-center neon-text">
                             More Videos
                         </h2>
-                        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 justify-items-center">
-                            {related.map((v) => (
+                        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {related.map(v => (
                                 <VideoCard key={v.id} video={v} />
                             ))}
                         </div>
                     </div>
+                ) : (
+                    <p className="text-gray-400 text-center mt-4">No related videos found.</p>
                 )}
             </div>
 
