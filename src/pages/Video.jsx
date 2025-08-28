@@ -126,17 +126,23 @@ export default function Video() {
 
         const container = playerContainerRef.current;
         if (!container) return;
+
+        // Clear container
         container.innerHTML = "";
 
+        // Create video element
         const videoEl = document.createElement("video");
         videoEl.className = "w-full h-full rounded-lg";
         videoEl.setAttribute("playsinline", "");
         videoEl.setAttribute("webkit-playsinline", "");
         videoEl.setAttribute("controls", "");
-        videoEl.muted = true;
+        videoEl.muted = true; // ✅ for autoplay
+        videoEl.autoplay = false;
+
         container.appendChild(videoEl);
 
         let plyrInstance;
+        let hls;
 
         const initializePlyr = () => {
             if (!plyrInstance) {
@@ -145,32 +151,50 @@ export default function Video() {
                     muted: true,
                     ratio: "16:9",
                     tooltips: { controls: true, seek: true },
-                    controls: ["play-large", "play", "progress", "current-time", "mute", "volume", "settings", "fullscreen"],
+                    controls: [
+                        "play-large",
+                        "play",
+                        "progress",
+                        "current-time",
+                        "mute",
+                        "volume",
+                        "settings",
+                        "fullscreen",
+                    ],
                 });
             }
         };
 
+        // ✅ HLS handling
         if (video.videoUrl.endsWith(".m3u8")) {
             if (Hls.isSupported()) {
-                const hls = new Hls();
+                hls = new Hls({ autoStartLoad: true, capLevelToPlayerSize: true });
                 hls.loadSource(video.videoUrl);
                 hls.attachMedia(videoEl);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => initializePlyr());
             } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
+                // Safari
                 videoEl.src = video.videoUrl;
                 videoEl.type = "application/x-mpegURL";
                 videoEl.addEventListener("loadedmetadata", () => initializePlyr());
             } else {
+                // fallback
                 videoEl.src = video.videoUrl;
                 videoEl.addEventListener("loadedmetadata", () => initializePlyr());
             }
         } else {
+            // MP4
             videoEl.src = video.videoUrl;
             videoEl.addEventListener("loadedmetadata", () => initializePlyr());
         }
 
-        return () => plyrInstance?.destroy();
+        // Cleanup
+        return () => {
+            plyrInstance?.destroy();
+            hls?.destroy();
+        };
     }, [video]);
+
 
     if (loading) return <p className="text-white p-6 text-center">Loading...</p>;
     if (error) return <p className="text-red-500 p-6 text-center">{error}</p>;
