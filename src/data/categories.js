@@ -13,8 +13,8 @@
         showAd: true,
         ads: [
             { image: "https://ggonggane.com/storage/banner-image/20241018-1729178186610724.jpg", link: "https://t.me/csghie29" },
-            { image: "https://ggonggane.com/storage/banner-image/20250530-1748596600489363.jpg", link: "https://t.me/csghie29" },
             { image: "https://ggonggane.com/storage/banner-image/20241018-1729178186610724.jpg", link: "https://t.me/csghie29" },
+            { image: "https://ggonggane.com/storage/banner-image/20250530-1748596600489363.jpg", link: "https://t.me/csghie29" },
             { image: "https://ggonggane.com/storage/banner-image/20250530-1748596600489363.jpg", link: "https://t.me/csghie29" },
         ]
     },
