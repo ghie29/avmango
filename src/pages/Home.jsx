@@ -2,7 +2,7 @@
 import VideoCard from "../components/VideoCard";
 import supabase from "../../supabaseClient";
 import Sidebar from "../components/Sidebar";
-import { categories } from "../data/categories"; // ✅ import categories.js
+import { categories } from "../data/categories";
 
 export default function Home() {
     const [videos, setVideos] = useState([]);
@@ -23,13 +23,11 @@ export default function Home() {
 
         const term = searchTerm.toLowerCase();
 
-        // Filter Korean / Supabase videos
         const filteredMain = videos.filter(video =>
             video.title.toLowerCase().includes(term)
         );
         setFilteredVideos(filteredMain);
 
-        // Filter all API categories
         const filteredExtras = {};
         for (const [slug, vids] of Object.entries(extraSections)) {
             filteredExtras[slug] = vids.filter(video =>
@@ -44,31 +42,28 @@ export default function Home() {
         async function fetchKoreanVideos() {
             setLoading(true);
             try {
-                // ✅ Get Korean board
                 const { data: boardData, error: boardError } = await supabase
                     .from("boards")
                     .select("id")
                     .eq("slug", "korean")
                     .single();
-
                 if (boardError) throw boardError;
 
-                // ✅ Fetch videos from Supabase
                 const { data: videosData, error: videosError } = await supabase
                     .from("videos")
                     .select("*")
                     .eq("board_id", boardData.id)
                     .order("created_at", { ascending: false })
                     .limit(8);
-
                 if (videosError) throw videosError;
 
                 const normalized = videosData.map(video => ({
-                    id: video.slug || video.code || video.id, // ✅ Use slug/code if available
+                    id: video.slug || video.code || video.id, // SEO-friendly
                     title: video.title || "No Title",
                     views: video.views || "0",
                     thumbnail: video.thumbnail || "https://via.placeholder.com/320x180",
                     source: "supabase",
+                    type: "supabase",
                 }));
 
                 setVideos(normalized);
@@ -83,7 +78,6 @@ export default function Home() {
             setLoadingExtras(true);
             try {
                 const results = {};
-                // ✅ Loop through categories object (skip korean, handled above)
                 for (const [slug, cat] of Object.entries(categories)) {
                     if (cat.type === "supabase") continue;
 
@@ -93,10 +87,11 @@ export default function Home() {
 
                         if (data?.list) {
                             results[slug] = data.list.slice(0, 4).map(video => ({
-                                id: video.slug || video.code || video.vod_id || video.id, // ✅ Ensure route-safe ID
+                                id: video.id, // ✅ always use numeric ID for API videos
                                 title: video.name || video.title || "No Title",
                                 thumbnail: video.thumb_url || video.poster_url || "https://via.placeholder.com/320x180",
                                 source: "api",
+                                type: "api",
                             }));
                         }
                     } catch (err) {

@@ -11,10 +11,14 @@ export default function Video() {
     const { id } = useParams();
     const [video, setVideo] = useState(null);
     const [related, setRelated] = useState([]);
+    const [displayedRelated, setDisplayedRelated] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [relatedBatch, setRelatedBatch] = useState(12); // Load 12 at a time
 
     useEffect(() => {
+        window.scrollTo(0, 0); // Scroll top when video changes
+
         async function fetchVideo() {
             setLoading(true);
             setError(null);
@@ -23,7 +27,7 @@ export default function Video() {
                 let fetchedVideo = null;
                 let categoryType = "unknown";
 
-                // 1️⃣ Check API categories (AVDB/AVDPI)
+                // 1️⃣ API categories
                 for (const cat of Object.values(categories)) {
                     if (cat.type === "api") {
                         const res = await fetch(cat.url);
@@ -33,7 +37,6 @@ export default function Video() {
                         if (found) {
                             fetchedVideo = found;
                             categoryType = "api";
-                            // ✅ Set iframe URL
                             fetchedVideo.videoUrl =
                                 found.episodes?.server_data?.Full?.link_embed ||
                                 found.video_url ||
@@ -72,9 +75,7 @@ export default function Video() {
                     const { data: rel, error: relError } = await supabase
                         .from("videos")
                         .select("*")
-                        .not("id", "eq", fetchedVideo.id)
-                        .limit(8);
-
+                        .not("id", "eq", fetchedVideo.id);
                     if (relError) console.error(relError);
 
                     relatedVideos = (rel || []).map(v => ({
@@ -90,10 +91,8 @@ export default function Video() {
                         const res = await fetch(apiCategory.url);
                         const json = await res.json();
                         const list = Array.isArray(json.list) ? json.list : json.id ? [json] : [];
-
                         relatedVideos = list
                             .filter(v => v.id != id)
-                            .slice(0, 8)
                             .map(v => ({
                                 id: v.id,
                                 title: v.title || v.name || v.origin_name || "No Title",
@@ -103,7 +102,9 @@ export default function Video() {
                     }
                 }
 
-                // --- Set Video & Related ---
+                // Shuffle related videos for randomness
+                relatedVideos = relatedVideos.sort(() => Math.random() - 0.5);
+
                 setVideo({
                     id: fetchedVideo.id,
                     title: fetchedVideo.title || fetchedVideo.name || "No Title",
@@ -114,6 +115,7 @@ export default function Video() {
                 });
 
                 setRelated(relatedVideos);
+                setDisplayedRelated(relatedVideos.slice(0, relatedBatch));
 
             } catch (err) {
                 console.error(err);
@@ -124,7 +126,15 @@ export default function Video() {
         }
 
         fetchVideo();
-    }, [id]);
+    }, [id, relatedBatch]);
+
+    // Load More related videos
+    const loadMore = () => {
+        setDisplayedRelated(prev => {
+            const nextCount = prev.length + relatedBatch;
+            return related.slice(0, nextCount);
+        });
+    };
 
     if (loading) return <p className="text-white p-6 text-center">Loading...</p>;
     if (error) return <p className="text-red-500 p-6 text-center">{error}</p>;
@@ -154,7 +164,7 @@ export default function Video() {
                                 }}
                             />
                         </div>
-                    ) : video.type === "api" ? (
+                    ) : (
                         <div className="relative w-full rounded-lg shadow-lg overflow-hidden aspect-video">
                             <iframe
                                 src={video.videoUrl}
@@ -164,7 +174,7 @@ export default function Video() {
                                 className="absolute top-0 left-0 w-full h-full"
                             />
                         </div>
-                    ) : null}
+                    )}
 
                     <h1 className="font-bold mt-2 text-left text-white neon-text line-clamp-2 text-2xl">
                         {video.title}
@@ -173,16 +183,31 @@ export default function Video() {
                 </div>
 
                 {/* Related Videos */}
-                {related.length > 0 ? (
+                {displayedRelated.length > 0 ? (
                     <div className="w-full max-w-7xl mt-8 mx-auto">
                         <h2 className="text-2xl sm:text-2xl md:text-3xl text-white font-bold mb-6 text-center neon-text">
                             More Videos
                         </h2>
                         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {related.map(v => (
-                                <VideoCard key={v.id} video={v} />
+                            {displayedRelated.map(v => (
+                                <VideoCard
+                                    key={v.id}
+                                    video={v}
+                                    onClick={() => window.scrollTo(0, 0)} // Scroll top only on click video
+                                />
                             ))}
                         </div>
+
+                        {displayedRelated.length < related.length && (
+                            <div className="text-center mt-4">
+                                <button
+                                    onClick={loadMore}
+                                    className="px-6 py-2 bg-yellow-600 text-black font-bold rounded-lg hover:bg-yellow-700 transition-all"
+                                >
+                                    Load More
+                                </button>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <p className="text-gray-400 text-center mt-4">No related videos found.</p>
