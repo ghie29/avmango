@@ -129,31 +129,30 @@ export default function Video() {
     useEffect(() => {
         if (!video || !video.videoUrl || video.type !== "supabase") return;
 
-        const timer = setTimeout(() => {
-            const container = playerContainerRef.current;
-            if (!container) {
-                console.warn("No container found for player");
-                return;
-            }
+        const container = playerContainerRef.current;
+        let plyrInstance;
 
-            let plyrInstance;
+        if (container) {
             const videoEl = document.createElement("video");
             videoEl.className = "w-full h-full rounded-lg";
-            videoEl.setAttribute("playsinline", "");
-            videoEl.setAttribute("webkit-playsinline", "");
-            videoEl.setAttribute("controls", "");
+            videoEl.setAttribute("playsinline", "");        // lowercase
+            videoEl.setAttribute("webkit-playsinline", ""); // iOS Safari
+            videoEl.setAttribute("controls", "");           // force UI
             container.innerHTML = "";
             container.appendChild(videoEl);
 
             if (video.videoUrl.endsWith(".m3u8")) {
                 if (Hls.isSupported()) {
+                    // ✅ Desktop + Android
                     const hls = new Hls();
                     hls.loadSource(video.videoUrl);
                     hls.attachMedia(videoEl);
                 } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
-                    videoEl.src = video.videoUrl; // iOS Safari native HLS
+                    // ✅ iOS Safari native HLS
+                    videoEl.src = video.videoUrl;
                 }
             } else {
+                // ✅ Plain MP4
                 videoEl.src = video.videoUrl;
             }
 
@@ -166,9 +165,9 @@ export default function Video() {
                     "mute", "volume", "settings", "fullscreen"
                 ]
             });
-        }, 100); // wait for DOM to mount
+        }
 
-        return () => clearTimeout(timer);
+        return () => plyrInstance?.destroy();
     }, [video]);
 
 
@@ -184,18 +183,19 @@ export default function Video() {
                 <div className="w-full max-w-[100%] mx-auto mb-6">
                     {/* Player container */}
                     {video.type === "supabase" ? (
-                        <div ref={playerContainerRef} className="w-full mb-4" />
+                        <div ref={playerContainerRef} className="w-full mb-4"></div>
                     ) : (
                         <div className="relative w-full rounded-lg shadow-lg overflow-hidden aspect-video">
-                                <iframe
-                                    src={video.videoUrl}
-                                    title={video.title}
-                                    allowFullScreen
-                                    loading="lazy"
-                                    className="absolute top-0 left-0 w-full h-full"
-                                />
+                            <iframe
+                                src={video.videoUrl}
+                                title={video.title}
+                                allowFullScreen
+                                loading="lazy"
+                                className="absolute top-0 left-0 w-full h-full"
+                            />
                         </div>
                     )}
+
 
                     {/* Title & Description always visible */}
                     <h1 className="font-bold mt-2 text-left text-white neon-text line-clamp-2 text-2xl">
