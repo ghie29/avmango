@@ -12,12 +12,13 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.56.0",
     "axios": "^1.11.0",
+    "hls.js": "^1.6.11",
     "lucide-react": "^0.542.0",
+    "plyr": "^3.8.3",
     "plyr-react": "^5.3.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-player": "^3.3.2",
-    "react-plyr": "^2.2.0",
     "react-router-dom": "^7.8.2",
     "uuid": "^11.1.0"
   },
