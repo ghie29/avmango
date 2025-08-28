@@ -6,7 +6,7 @@ export default function Footer() {
 
                 {/* 🌟 About Section */}
                 <div className="">
-                    <h2 className="text-2xl md:text-3xl font-extrabold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-yellow-500 to-yellow-200 drop-shadow-lg">
+                    <h2 className="text-2xl md:text-2xl font-extrabold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-yellow-500 to-yellow-200 drop-shadow-lg">
                         Welcome to AVMANGO
                     </h2>
                     <p className="text-md md:text-md text-gray-200 leading-relaxed">

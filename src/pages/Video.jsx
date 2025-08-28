@@ -7,6 +7,7 @@ import Sidebar from "../components/Sidebar";
 import Hls from "hls.js";
 import { validate as isUuid } from "uuid";
 import AdTopGrid from "../components/AdTopGrid";
+import FakeStats from "../components/FakeStats";
 
 export default function Video() {
     const { id } = useParams();
@@ -141,12 +142,16 @@ export default function Video() {
     if (error) return <p className="text-red-500 p-6 text-center">{error}</p>;
     if (!video) return null;
 
-    return (
+      return (
         <div className="flex flex-col lg:flex-row w-full px-2 gap-6 mt-2">
             <div className="flex-1 flex flex-col items-center mt-2">
                 <div className="w-full max-w-[100%] mx-auto mb-6">
                     {/* Ad Block */}
                     <AdTopGrid />
+
+                    {/* Fake Stats */}
+                    <FakeStats video={video} />
+
                     {/* Video Player */}
                     {video.type === "supabase" ? (
                         <div className="w-full aspect-video rounded-lg overflow-hidden">
@@ -185,11 +190,12 @@ export default function Video() {
                     <p className="mt-2 text-left text-white line-clamp-3">{video.description}</p>
                 </div>
 
+
                 {/* Related Videos */}
                 {displayedRelated.length > 0 ? (
                     <div className="w-full max-w-7xl mt-8 mx-auto">
                         <h2 className="text-2xl sm:text-2xl md:text-3xl text-white font-bold mb-6 text-center neon-text">
-                            More Videos
+                            More Videos AVMANGO
                         </h2>
                         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                             {displayedRelated.map(v => (
