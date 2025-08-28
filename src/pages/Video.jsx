@@ -135,41 +135,57 @@ export default function Video() {
         if (container) {
             const videoEl = document.createElement("video");
             videoEl.className = "w-full h-full rounded-lg";
-            videoEl.setAttribute("playsinline", "");        // lowercase
+            videoEl.setAttribute("playsinline", "");        // iOS inline
             videoEl.setAttribute("webkit-playsinline", ""); // iOS Safari
-            videoEl.setAttribute("controls", "");           // force UI
+            videoEl.setAttribute("controls", "");           // fallback UI
+            videoEl.setAttribute("muted", "");              // ✅ required for autoplay on iOS
             container.innerHTML = "";
             container.appendChild(videoEl);
 
+            // ----- Source handling -----
             if (video.videoUrl.endsWith(".m3u8")) {
                 if (Hls.isSupported()) {
-                    // ✅ Desktop / Android browsers
+                    // ✅ Desktop / Android
                     const hls = new Hls();
                     hls.loadSource(video.videoUrl);
                     hls.attachMedia(videoEl);
                 } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
-                    // ✅ iOS Safari fallback
+                    // ✅ iOS Safari native HLS
                     videoEl.src = video.videoUrl;
                 } else {
                     console.warn("HLS not supported on this device");
                 }
             } else {
-                videoEl.src = video.videoUrl; // mp4
+                // ✅ MP4 fallback
+                videoEl.src = video.videoUrl;
             }
 
-            plyrInstance = new Plyr(videoEl, {
-                autoplay: false,
-                ratio: "16:9",
-                tooltips: { controls: true, seek: true },
-                controls: [
-                    "play-large", "play", "progress", "current-time",
-                    "mute", "volume", "settings", "fullscreen"
-                ]
+            // ----- Initialize Plyr after source is set -----
+            videoEl.addEventListener("loadedmetadata", () => {
+                plyrInstance = new Plyr(videoEl, {
+                    autoplay: false,
+                    muted: true, // ✅ ensures no block by iOS
+                    ratio: "16:9",
+                    tooltips: { controls: true, seek: true },
+                    controls: [
+                        "play-large",
+                        "play",
+                        "progress",
+                        "current-time",
+                        "mute",
+                        "volume",
+                        "settings",
+                        "fullscreen",
+                    ],
+                });
             });
         }
 
-        return () => plyrInstance?.destroy();
+        return () => {
+            plyrInstance?.destroy();
+        };
     }, [video]);
+
 
 
     if (loading) return <p className="text-white p-6 text-center">Loading...</p>;
