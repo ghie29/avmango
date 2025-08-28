@@ -4,7 +4,7 @@ import supabase from "../../supabaseClient";
 import VideoCard from "../components/VideoCard";
 import { categories } from "../data/categories";
 import Sidebar from "../components/Sidebar";
-import ReactPlayer from "react-player";
+import Hls from "hls.js";
 import { validate as isUuid } from "uuid";
 
 export default function Video() {
@@ -30,7 +30,7 @@ export default function Video() {
                         const res = await fetch(cat.url);
                         const json = await res.json();
                         const list = Array.isArray(json.list) ? json.list : json.id ? [json] : [];
-                        const found = list.find(v => v.id == id);
+                        const found = list.find((v) => v.id == id);
                         if (found) {
                             fetchedVideo = found;
                             categoryType = "api";
@@ -52,17 +52,21 @@ export default function Video() {
                         .maybeSingle();
 
                     if (fetchError) throw fetchError;
+
                     if (koreanVideo) {
                         fetchedVideo = koreanVideo;
                         categoryType = "supabase";
+                        // Prefer .m3u8 URL if available
+                        fetchedVideo.videoUrl = koreanVideo.video_url_m3u8 || koreanVideo.video_url;
                     }
                 }
 
                 if (!fetchedVideo) throw new Error("Video not found");
 
-                const videoUrl = categoryType === "supabase"
-                    ? fetchedVideo.video_url
-                    : fetchedVideo.episodes?.server_data?.Full?.link_embed || "";
+                const videoUrl =
+                    categoryType === "supabase"
+                        ? fetchedVideo.videoUrl
+                        : fetchedVideo.episodes?.server_data?.Full?.link_embed || "";
 
                 setVideo({
                     id: fetchedVideo.id,
@@ -70,7 +74,10 @@ export default function Video() {
                     videoUrl,
                     type: categoryType,
                     description: fetchedVideo.description || "No description available",
-                    thumbnail: fetchedVideo.poster_url || fetchedVideo.thumb_url || "https://via.placeholder.com/640x360",
+                    thumbnail:
+                        fetchedVideo.poster_url ||
+                        fetchedVideo.thumb_url ||
+                        "https://via.placeholder.com/640x360",
                 });
 
                 // -------------------- Related Videos --------------------
@@ -81,22 +88,22 @@ export default function Video() {
                         .select("*")
                         .neq("slug", fetchedVideo.slug)
                         .limit(8);
-                    relatedVideos = rel.map(v => ({
+                    relatedVideos = rel.map((v) => ({
                         id: v.id,
                         title: v.title,
                         thumbnail: v.thumbnail || "https://via.placeholder.com/320x180",
                         views: v.views || 0,
                     }));
                 } else if (categoryType === "api") {
-                    const apiCategory = Object.values(categories).find(c => c.type === "api");
+                    const apiCategory = Object.values(categories).find((c) => c.type === "api");
                     if (apiCategory) {
                         const res = await fetch(apiCategory.url);
                         const json = await res.json();
                         const list = Array.isArray(json.list) ? json.list : json.id ? [json] : [];
                         relatedVideos = list
-                            .filter(v => v.id != id)
+                            .filter((v) => v.id != id)
                             .slice(0, 8)
-                            .map(v => ({
+                            .map((v) => ({
                                 id: v.id,
                                 title: v.title || v.name || v.origin_name || "No Title",
                                 thumbnail: v.poster_url || v.thumb_url || "https://via.placeholder.com/320x180",
@@ -104,8 +111,8 @@ export default function Video() {
                             }));
                     }
                 }
-                setRelated(relatedVideos);
 
+                setRelated(relatedVideos);
             } catch (err) {
                 console.error(err);
                 setError(err.message || "Error loading video");
@@ -127,25 +134,31 @@ export default function Video() {
                 <div className="w-full max-w-[100%] mx-auto mb-6">
                     {video.type === "supabase" ? (
                         <div className="w-full aspect-video rounded-lg overflow-hidden">
-                            <ReactPlayer
-                                url={video.videoUrl}
+                            <video
+                                className="w-full h-full"
                                 controls
-                                width="100%"
-                                height="100%"
-                                light={video.thumbnail}
-                                playing={false}
+                                autoPlay={false}
+                                playsInline
+                                ref={(videoEl) => {
+                                    if (!videoEl) return;
+                                    if (video.videoUrl.endsWith(".m3u8") && Hls.isSupported()) {
+                                        const hls = new Hls();
+                                        hls.loadSource(video.videoUrl);
+                                        hls.attachMedia(videoEl);
+                                    } else {
+                                        videoEl.src = video.videoUrl;
+                                    }
+                                }}
                             />
                         </div>
                     ) : (
-                        <div className="relative w-full rounded-lg shadow-lg overflow-hidden aspect-video">
-                            <iframe
-                                src={video.videoUrl}
-                                title={video.title}
-                                allowFullScreen
-                                loading="lazy"
-                                className="absolute top-0 left-0 w-full h-full"
-                            />
-                        </div>
+                        <iframe
+                            src={video.videoUrl}
+                            title={video.title}
+                            allowFullScreen
+                            loading="lazy"
+                            className="w-full aspect-video rounded-lg"
+                        />
                     )}
 
                     <h1 className="font-bold mt-2 text-left text-white neon-text line-clamp-2 text-2xl">
@@ -156,9 +169,13 @@ export default function Video() {
 
                 {related.length > 0 && (
                     <div className="w-full max-w-7xl mt-8">
-                        <h2 className="text-xl text-white font-bold mb-4 text-center neon-text">More Videos</h2>
+                        <h2 className="text-xl text-white font-bold mb-4 text-center neon-text">
+                            More Videos
+                        </h2>
                         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 justify-items-center">
-                            {related.map(v => <VideoCard key={v.id} video={v} />)}
+                            {related.map((v) => (
+                                <VideoCard key={v.id} video={v} />
+                            ))}
                         </div>
                     </div>
                 )}
