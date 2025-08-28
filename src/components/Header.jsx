@@ -131,7 +131,7 @@ transition-all duration-300"
             )}
 
             {/* Desktop: category menu */}
-            <nav className="hidden md:block mt-10 w-full">
+            <nav className="hidden md:block w-full">
                 <ul
                     className="flex flex-nowrap px-2 md:px-0 space-x-4 md:space-x-6 
           bg-gradient-to-r from-gray-900 via-yellow-900 to-gray-900 

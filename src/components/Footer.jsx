@@ -5,7 +5,7 @@ export default function Footer() {
             <div className="max-w-[100%] mx-auto grid grid-cols-1 md:grid-cols-3 gap-10">
 
                 {/* 🌟 About Section */}
-                <div className="bg-gray-900 rounded-lg shadow-lg">
+                <div className="">
                     <h2 className="text-2xl md:text-3xl font-extrabold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-yellow-500 to-yellow-200 drop-shadow-lg">
                         Welcome to AVMANGO
                     </h2>
