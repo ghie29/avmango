@@ -3,6 +3,7 @@ import VideoCard from "../components/VideoCard";
 import supabase from "../../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import { categories } from "../data/categories";
+import AdTopGrid from "../components/AdTopGrid";
 
 export default function Home() {
     const [videos, setVideos] = useState([]);
@@ -111,12 +112,16 @@ export default function Home() {
     }, []);
 
     return (
-        <div className="p-2 flex flex-col lg:flex-row gap-8">
+        <div className="p-2 flex flex-col lg:flex-row gap-2 mt-2">
             {/* Main content */}
             <div className="flex-1 -mt-10 space-y-2 mt-2">
+
+                {/* Ad Block */}
+                <AdTopGrid />
+
                 {/* Korean Section */}
                 <div>
-                    <h1 className="text-2xl text-white mb-2 font-bold">Videos being watched</h1>
+                    <h1 className="text-2xl text-white mb-2 font-bold">Mango Korean +19</h1>
                     {loading ? (
                         <p className="text-white">Loading...</p>
                     ) : videos.length === 0 ? (

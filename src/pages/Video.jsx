@@ -6,6 +6,7 @@ import { categories } from "../data/categories";
 import Sidebar from "../components/Sidebar";
 import Hls from "hls.js";
 import { validate as isUuid } from "uuid";
+import AdTopGrid from "../components/AdTopGrid";
 
 export default function Video() {
     const { id } = useParams();
@@ -142,8 +143,10 @@ export default function Video() {
 
     return (
         <div className="flex flex-col lg:flex-row w-full px-2 gap-6 mt-2">
-            <div className="flex-1 flex flex-col items-center">
+            <div className="flex-1 flex flex-col items-center mt-2">
                 <div className="w-full max-w-[100%] mx-auto mb-6">
+                    {/* Ad Block */}
+                    <AdTopGrid />
                     {/* Video Player */}
                     {video.type === "supabase" ? (
                         <div className="w-full aspect-video rounded-lg overflow-hidden">

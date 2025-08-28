@@ -4,6 +4,7 @@ import supabase from "../../supabaseClient";
 import VideoCard from "../components/VideoCard";
 import { categories } from "../data/categories";
 import Sidebar from "../components/Sidebar";
+import AdTopGrid from "../components/AdTopGrid";
 
 export default function Category() {
     const { name } = useParams();
@@ -183,6 +184,7 @@ export default function Category() {
 
     return (
         <>
+            
             <h1 className="ml-1 text-3xl font-extrabold mb-6 text-white capitalize">
                 {displayName}
             </h1>
@@ -194,9 +196,13 @@ export default function Category() {
             )}
 
             {!loading && !error && paginatedVideos.length > 0 && (
-                <div className="flex flex-col lg:flex-row gap-6 max-w-[99%] mx-auto justify-center">
+                <div className="flex flex-col lg:flex-row gap-6 max-w-[99%] mx-auto justify-center1">
                     {/* Left: Video Grid */}
-                    <div className="flex-1">
+                    <div className="flex-1 mt-2">
+
+                        {/* Ad Block */}
+                        <AdTopGrid />
+
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                             {paginatedVideos.map(video => {
                                 // Pass urlId for VideoCard link
