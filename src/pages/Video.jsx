@@ -126,6 +126,7 @@ export default function Video() {
     }, [id]);
 
     // -------------------- Plyr Setup for Korean Supabase --------------------
+    // -------------------- Plyr Setup for Korean Supabase --------------------
     useEffect(() => {
         if (!video || !video.videoUrl || video.type !== "supabase") return;
 
@@ -133,59 +134,58 @@ export default function Video() {
         let plyrInstance;
 
         if (container) {
+            // Create fresh video element
             const videoEl = document.createElement("video");
             videoEl.className = "w-full h-full rounded-lg";
-            videoEl.setAttribute("playsinline", "");        // iOS inline
-            videoEl.setAttribute("webkit-playsinline", ""); // iOS Safari
-            videoEl.setAttribute("controls", "");           // fallback UI
-            videoEl.setAttribute("muted", "");              // ✅ required for autoplay on iOS
+            videoEl.setAttribute("playsinline", "");
+            videoEl.setAttribute("webkit-playsinline", "");
+            videoEl.setAttribute("controls", "");
+            videoEl.setAttribute("muted", "");              // ✅ iOS autoplay policy
+
+            // Clear container and append
             container.innerHTML = "";
             container.appendChild(videoEl);
 
-            // ----- Source handling -----
+            // ---- Always assign a source ----
             if (video.videoUrl.endsWith(".m3u8")) {
                 if (Hls.isSupported()) {
-                    // ✅ Desktop / Android
                     const hls = new Hls();
                     hls.loadSource(video.videoUrl);
                     hls.attachMedia(videoEl);
                 } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
-                    // ✅ iOS Safari native HLS
+                    // iOS Safari fallback
                     videoEl.src = video.videoUrl;
                 } else {
-                    console.warn("HLS not supported on this device");
+                    console.warn("HLS not supported, setting raw src");
+                    videoEl.src = video.videoUrl; // ✅ last resort
                 }
             } else {
-                // ✅ MP4 fallback
-                videoEl.src = video.videoUrl;
+                videoEl.src = video.videoUrl; // mp4
             }
 
-            // ----- Initialize Plyr after source is set -----
-            videoEl.addEventListener("loadedmetadata", () => {
-                plyrInstance = new Plyr(videoEl, {
-                    autoplay: false,
-                    muted: true, // ✅ ensures no block by iOS
-                    ratio: "16:9",
-                    tooltips: { controls: true, seek: true },
-                    controls: [
-                        "play-large",
-                        "play",
-                        "progress",
-                        "current-time",
-                        "mute",
-                        "volume",
-                        "settings",
-                        "fullscreen",
-                    ],
-                });
+            // ---- Initialize Plyr once source is set ----
+            plyrInstance = new Plyr(videoEl, {
+                autoplay: false,
+                muted: true,
+                ratio: "16:9",
+                tooltips: { controls: true, seek: true },
+                controls: [
+                    "play-large",
+                    "play",
+                    "progress",
+                    "current-time",
+                    "mute",
+                    "volume",
+                    "settings",
+                    "fullscreen",
+                ],
             });
+
+            console.log("✅ Plyr initialized", video.videoUrl);
         }
 
-        return () => {
-            plyrInstance?.destroy();
-        };
+        return () => plyrInstance?.destroy();
     }, [video]);
-
 
 
     if (loading) return <p className="text-white p-6 text-center">Loading...</p>;
