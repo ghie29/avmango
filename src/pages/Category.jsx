@@ -42,6 +42,8 @@ export default function Category() {
                         .order("created_at", { ascending: false });
 
                     const allVideos = videosData.map(video => ({
+                        // Use slug or code first for URL, fallback to id
+                        urlId: video.slug || video.code || video.id,
                         id: video.id,
                         title: video.title || "No Title",
                         views: video.views || "0",
@@ -172,7 +174,6 @@ export default function Category() {
         return pages;
     };
 
-
     const displayName = name
         ? name
             .replace(/([A-Z])/g, " $1")
@@ -197,9 +198,11 @@ export default function Category() {
                     {/* Left: Video Grid */}
                     <div className="flex-1">
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {paginatedVideos.map(video => (
-                                <VideoCard key={video.id} video={video} />
-                            ))}
+                            {paginatedVideos.map(video => {
+                                // Pass urlId for VideoCard link
+                                const linkId = video.urlId || video.id;
+                                return <VideoCard key={video.id} video={{ ...video, id: linkId }} />;
+                            })}
                         </div>
 
                         {/* Pagination */}

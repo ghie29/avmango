@@ -46,7 +46,7 @@ export default function Video() {
                 if (!fetchedVideo) {
                     const query = isUuid(id)
                         ? `id.eq.${id}`
-                        : `slug.eq.${id}`;
+                        : `slug.eq.${id},code.eq.${id}`; // ✅ unified slug/code/UUID support
 
                     const { data: koreanVideo, error: fetchError } = await supabase
                         .from("videos")
@@ -63,13 +63,9 @@ export default function Video() {
 
                 if (!fetchedVideo) throw new Error("Video not found");
 
-                // -------------------- Normalize video URL --------------------
-                let videoUrl = "";
-                if (categoryType === "supabase") {
-                    videoUrl = fetchedVideo.video_url || "";
-                } else {
-                    videoUrl = fetchedVideo.episodes?.server_data?.Full?.link_embed || "";
-                }
+                const videoUrl = categoryType === "supabase"
+                    ? fetchedVideo.video_url
+                    : fetchedVideo.episodes?.server_data?.Full?.link_embed || "";
 
                 setVideo({
                     id: fetchedVideo.id,
@@ -86,7 +82,7 @@ export default function Video() {
                     const { data: rel } = await supabase
                         .from("videos")
                         .select("*")
-                        .neq("slug", id)
+                        .neq("slug", fetchedVideo.slug)
                         .limit(8);
                     relatedVideos = rel.map(v => ({
                         id: v.id,
@@ -112,6 +108,7 @@ export default function Video() {
                     }
                 }
                 setRelated(relatedVideos);
+
             } catch (err) {
                 console.error(err);
                 setError(err.message || "Error loading video");
@@ -123,85 +120,57 @@ export default function Video() {
         fetchVideo();
     }, [id]);
 
-    // -------------------- Plyr Setup for Korean Supabase --------------------
+    // -------------------- Plyr Setup --------------------
     useEffect(() => {
         if (!video || !video.videoUrl || video.type !== "supabase") return;
 
         const container = playerContainerRef.current;
         if (!container) return;
-
-        // Clear container
         container.innerHTML = "";
 
-        // Create video element
         const videoEl = document.createElement("video");
         videoEl.className = "w-full h-full rounded-lg";
         videoEl.setAttribute("playsinline", "");
         videoEl.setAttribute("webkit-playsinline", "");
         videoEl.setAttribute("controls", "");
-        videoEl.muted = true; // ✅ Required for autoplay on mobile
-        videoEl.autoplay = false;
-
+        videoEl.muted = true;
         container.appendChild(videoEl);
 
         let plyrInstance;
 
         const initializePlyr = () => {
-            // Only initialize once
             if (!plyrInstance) {
                 plyrInstance = new Plyr(videoEl, {
                     autoplay: false,
                     muted: true,
                     ratio: "16:9",
                     tooltips: { controls: true, seek: true },
-                    controls: [
-                        "play-large",
-                        "play",
-                        "progress",
-                        "current-time",
-                        "mute",
-                        "volume",
-                        "settings",
-                        "fullscreen",
-                    ],
+                    controls: ["play-large", "play", "progress", "current-time", "mute", "volume", "settings", "fullscreen"],
                 });
             }
         };
 
-        const setupSource = () => {
-            if (video.videoUrl.endsWith(".m3u8")) {
-                // HLS playback
-                if (Hls.isSupported()) {
-                    const hls = new Hls({ autoStartLoad: true, capLevelToPlayerSize: true });
-                    hls.loadSource(video.videoUrl);
-                    hls.attachMedia(videoEl);
-                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                        initializePlyr();
-                    });
-                } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
-                    // iOS Safari native HLS
-                    videoEl.src = video.videoUrl;
-                    videoEl.type = "application/x-mpegURL";
-                    videoEl.addEventListener("loadedmetadata", () => initializePlyr());
-                } else {
-                    // Fallback raw src
-                    videoEl.src = video.videoUrl;
-                    videoEl.addEventListener("loadedmetadata", () => initializePlyr());
-                }
+        if (video.videoUrl.endsWith(".m3u8")) {
+            if (Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(video.videoUrl);
+                hls.attachMedia(videoEl);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => initializePlyr());
+            } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
+                videoEl.src = video.videoUrl;
+                videoEl.type = "application/x-mpegURL";
+                videoEl.addEventListener("loadedmetadata", () => initializePlyr());
             } else {
-                // MP4 fallback
                 videoEl.src = video.videoUrl;
                 videoEl.addEventListener("loadedmetadata", () => initializePlyr());
             }
-        };
+        } else {
+            videoEl.src = video.videoUrl;
+            videoEl.addEventListener("loadedmetadata", () => initializePlyr());
+        }
 
-        // Run setup
-        setupSource();
-
-        // Cleanup
         return () => plyrInstance?.destroy();
     }, [video]);
-
 
     if (loading) return <p className="text-white p-6 text-center">Loading...</p>;
     if (error) return <p className="text-red-500 p-6 text-center">{error}</p>;
@@ -209,9 +178,7 @@ export default function Video() {
 
     return (
         <div className="flex flex-col lg:flex-row w-full px-2 gap-6 mt-2">
-            {/* Main Content */}
             <div className="flex-1 flex flex-col items-center">
-                {/* Player + Title */}
                 <div className="w-full max-w-[100%] mx-auto mb-6">
                     {video.type === "supabase" ? (
                         <div ref={playerContainerRef} className="w-full mb-4"></div>
@@ -226,30 +193,22 @@ export default function Video() {
                             />
                         </div>
                     )}
-
-                    {/* Title & Description */}
                     <h1 className="font-bold mt-2 text-left text-white neon-text line-clamp-2 text-2xl">
                         {video.title}
                     </h1>
                     <p className="mt-2 text-left text-white line-clamp-3">{video.description}</p>
                 </div>
 
-                {/* Related Videos */}
                 {related.length > 0 && (
                     <div className="w-full max-w-7xl mt-8">
-                        <h2 className="text-xl text-white font-bold mb-4 text-center neon-text">
-                            More Videos
-                        </h2>
+                        <h2 className="text-xl text-white font-bold mb-4 text-center neon-text">More Videos</h2>
                         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 justify-items-center">
-                            {related.map((v) => (
-                                <VideoCard key={v.id} video={v} />
-                            ))}
+                            {related.map(v => <VideoCard key={v.id} video={v} />)}
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* Right Sidebar */}
             <Sidebar />
         </div>
     );

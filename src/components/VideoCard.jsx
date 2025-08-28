@@ -6,6 +6,7 @@ export default function VideoCard({ video }) {
       border border-yellow-600/30 rounded-1xl overflow-hidden shadow-lg 
       hover:shadow-yellow-700/40 transition-all duration-300 hover:scale-105">
 
+            {/* Use the id passed from Category.jsx (could be slug, code, or UUID) */}
             <Link to={`/video/${video.id}`}>
                 {/* ✅ Thumbnail */}
                 <div className="relative aspect-video overflow-hidden">
