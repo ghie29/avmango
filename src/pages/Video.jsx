@@ -4,9 +4,7 @@ import supabase from "../../supabaseClient";
 import VideoCard from "../components/VideoCard";
 import { categories } from "../data/categories";
 import Sidebar from "../components/Sidebar";
-import Player from "plyr-react";
-import "plyr/dist/plyr.css";
-import Hls from "hls.js";
+import ReactPlayer from "react-player";
 import { validate as isUuid } from "uuid";
 
 export default function Video() {
@@ -119,26 +117,6 @@ export default function Video() {
         fetchVideo();
     }, [id]);
 
-    // -------------------- HLS/PLYR Source --------------------
-    const getPlayerSource = (url) => {
-        if (!url) return null;
-
-        // HLS .m3u8
-        if (url.endsWith(".m3u8")) {
-            if (Hls.isSupported()) {
-                return {
-                    type: "video",
-                    sources: [{ src: url, provider: "html5" }],
-                    hls: new Hls({ autoStartLoad: true }),
-                };
-            }
-            return { type: "video", sources: [{ src: url, provider: "html5" }] };
-        }
-
-        // MP4 fallback
-        return { type: "video", sources: [{ src: url, provider: "html5" }] };
-    };
-
     if (loading) return <p className="text-white p-6 text-center">Loading...</p>;
     if (error) return <p className="text-red-500 p-6 text-center">{error}</p>;
     if (!video) return null;
@@ -148,24 +126,16 @@ export default function Video() {
             <div className="flex-1 flex flex-col items-center">
                 <div className="w-full max-w-[100%] mx-auto mb-6">
                     {video.type === "supabase" ? (
-                        <Player
-                            source={getPlayerSource(video.videoUrl)}
-                            options={{
-                                autoplay: false,
-                                muted: true,
-                                ratio: "16:9",
-                                controls: [
-                                    "play-large",
-                                    "play",
-                                    "progress",
-                                    "current-time",
-                                    "mute",
-                                    "volume",
-                                    "settings",
-                                    "fullscreen",
-                                ],
-                            }}
-                        />
+                        <div className="w-full aspect-video rounded-lg overflow-hidden">
+                            <ReactPlayer
+                                url={video.videoUrl}
+                                controls
+                                width="100%"
+                                height="100%"
+                                light={video.thumbnail}
+                                playing={false}
+                            />
+                        </div>
                     ) : (
                         <div className="relative w-full rounded-lg shadow-lg overflow-hidden aspect-video">
                             <iframe
