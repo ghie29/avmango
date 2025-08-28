@@ -143,17 +143,18 @@ export default function Video() {
 
             if (video.videoUrl.endsWith(".m3u8")) {
                 if (Hls.isSupported()) {
-                    // ✅ Desktop + Android
+                    // ✅ Desktop / Android browsers
                     const hls = new Hls();
                     hls.loadSource(video.videoUrl);
                     hls.attachMedia(videoEl);
                 } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
-                    // ✅ iOS Safari native HLS
+                    // ✅ iOS Safari fallback
                     videoEl.src = video.videoUrl;
+                } else {
+                    console.warn("HLS not supported on this device");
                 }
             } else {
-                // ✅ Plain MP4
-                videoEl.src = video.videoUrl;
+                videoEl.src = video.videoUrl; // mp4
             }
 
             plyrInstance = new Plyr(videoEl, {
