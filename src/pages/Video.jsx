@@ -1,12 +1,12 @@
-﻿import { useEffect, useState, useRef } from "react";
+﻿import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import supabase from "../../supabaseClient";
 import VideoCard from "../components/VideoCard";
 import { categories } from "../data/categories";
 import Sidebar from "../components/Sidebar";
-import Plyr from "plyr";
-import Hls from "hls.js";
+import Player from "plyr-react";
 import "plyr/dist/plyr.css";
+import Hls from "hls.js";
 import { validate as isUuid } from "uuid";
 
 export default function Video() {
@@ -15,7 +15,6 @@ export default function Video() {
     const [related, setRelated] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const playerContainerRef = useRef(null);
 
     // -------------------- Fetch Video --------------------
     useEffect(() => {
@@ -27,7 +26,7 @@ export default function Video() {
                 let fetchedVideo = null;
                 let categoryType = "unknown";
 
-                // 1️⃣ AVDB API first
+                // 1️⃣ Check API categories
                 for (const cat of Object.values(categories)) {
                     if (cat.type === "api") {
                         const res = await fetch(cat.url);
@@ -42,11 +41,11 @@ export default function Video() {
                     }
                 }
 
-                // 2️⃣ Korean Supabase videos
+                // 2️⃣ Korean Supabase
                 if (!fetchedVideo) {
                     const query = isUuid(id)
                         ? `id.eq.${id}`
-                        : `slug.eq.${id},code.eq.${id}`; // ✅ unified slug/code/UUID support
+                        : `slug.eq.${id},code.eq.${id}`;
 
                     const { data: koreanVideo, error: fetchError } = await supabase
                         .from("videos")
@@ -120,81 +119,25 @@ export default function Video() {
         fetchVideo();
     }, [id]);
 
-    // -------------------- Plyr Setup --------------------
-    useEffect(() => {
-        if (!video || !video.videoUrl || video.type !== "supabase") return;
+    // -------------------- HLS/PLYR Source --------------------
+    const getPlayerSource = (url) => {
+        if (!url) return null;
 
-        const container = playerContainerRef.current;
-        if (!container) return;
-
-        // Clear container
-        container.innerHTML = "";
-
-        // Create video element
-        const videoEl = document.createElement("video");
-        videoEl.className = "w-full h-full rounded-lg";
-        videoEl.setAttribute("playsinline", "");
-        videoEl.setAttribute("webkit-playsinline", "");
-        videoEl.setAttribute("controls", "");
-        videoEl.muted = true; // ✅ for autoplay
-        videoEl.autoplay = false;
-
-        container.appendChild(videoEl);
-
-        let plyrInstance;
-        let hls;
-
-        const initializePlyr = () => {
-            if (!plyrInstance) {
-                plyrInstance = new Plyr(videoEl, {
-                    autoplay: false,
-                    muted: true,
-                    ratio: "16:9",
-                    tooltips: { controls: true, seek: true },
-                    controls: [
-                        "play-large",
-                        "play",
-                        "progress",
-                        "current-time",
-                        "mute",
-                        "volume",
-                        "settings",
-                        "fullscreen",
-                    ],
-                });
-            }
-        };
-
-        // ✅ HLS handling
-        if (video.videoUrl.endsWith(".m3u8")) {
+        // HLS .m3u8
+        if (url.endsWith(".m3u8")) {
             if (Hls.isSupported()) {
-                hls = new Hls({ autoStartLoad: true, capLevelToPlayerSize: true });
-                hls.loadSource(video.videoUrl);
-                hls.attachMedia(videoEl);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => initializePlyr());
-            } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
-                // Safari
-                videoEl.src = video.videoUrl;
-                videoEl.type = "application/x-mpegURL";
-                videoEl.addEventListener("loadedmetadata", () => initializePlyr());
-            } else {
-                // fallback
-                videoEl.src = video.videoUrl;
-                videoEl.addEventListener("loadedmetadata", () => initializePlyr());
+                return {
+                    type: "video",
+                    sources: [{ src: url, provider: "html5" }],
+                    hls: new Hls({ autoStartLoad: true }),
+                };
             }
-        } else {
-            // MP4
-            videoEl.src = video.videoUrl;
-            videoEl.addEventListener("loadedmetadata", () => initializePlyr());
+            return { type: "video", sources: [{ src: url, provider: "html5" }] };
         }
 
-        // Cleanup
-        return () => {
-            plyrInstance?.destroy();
-            hls?.destroy();
-        };
-    }, [video]);
-
+        // MP4 fallback
+        return { type: "video", sources: [{ src: url, provider: "html5" }] };
+    };
 
     if (loading) return <p className="text-white p-6 text-center">Loading...</p>;
     if (error) return <p className="text-red-500 p-6 text-center">{error}</p>;
@@ -205,7 +148,24 @@ export default function Video() {
             <div className="flex-1 flex flex-col items-center">
                 <div className="w-full max-w-[100%] mx-auto mb-6">
                     {video.type === "supabase" ? (
-                        <div ref={playerContainerRef} className="w-full mb-4"></div>
+                        <Player
+                            source={getPlayerSource(video.videoUrl)}
+                            options={{
+                                autoplay: false,
+                                muted: true,
+                                ratio: "16:9",
+                                controls: [
+                                    "play-large",
+                                    "play",
+                                    "progress",
+                                    "current-time",
+                                    "mute",
+                                    "volume",
+                                    "settings",
+                                    "fullscreen",
+                                ],
+                            }}
+                        />
                     ) : (
                         <div className="relative w-full rounded-lg shadow-lg overflow-hidden aspect-video">
                             <iframe
@@ -217,6 +177,7 @@ export default function Video() {
                             />
                         </div>
                     )}
+
                     <h1 className="font-bold mt-2 text-left text-white neon-text line-clamp-2 text-2xl">
                         {video.title}
                     </h1>
